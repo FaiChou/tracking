@@ -66,12 +66,17 @@ type Forwarder = {
 interface TrackingListProps {
   apiUrl?: string;
   refreshCounter?: number;
+  onCountsUpdate?: (total: number, filtered: number) => void;
 }
 
 type SortField = "status" | "createdAt";
 type SortOrder = "asc" | "desc";
 
-export default function TrackingList({ apiUrl = "/api/trackings?", refreshCounter = 0 }: TrackingListProps) {
+export default function TrackingList({ 
+  apiUrl = "/api/trackings?", 
+  refreshCounter = 0,
+  onCountsUpdate
+}: TrackingListProps) {
   const [trackings, setTrackings] = useState<Tracking[]>([]);
   const [logisticsCompanies, setLogisticsCompanies] = useState<LogisticsCompany[]>([]);
   const [forwarders, setForwarders] = useState<Forwarder[]>([]);
@@ -90,16 +95,27 @@ export default function TrackingList({ apiUrl = "/api/trackings?", refreshCounte
   const fetchTrackings = useCallback(async () => {
     setIsLoading(true);
     try {
+      // 获取总数据量
+      const totalRes = await fetch("/api/trackings/count");
+      const totalData = await totalRes.json();
+      const totalCount = totalData.count;
+      
+      // 获取过滤后的数据
       const res = await fetch(apiUrl);
       const data = await res.json();
       setTrackings(data);
+      
+      // 更新统计数据
+      if (onCountsUpdate) {
+        onCountsUpdate(totalCount, data.length);
+      }
     } catch (error) {
       console.error("Failed to fetch trackings:", error);
       toast.error("获取运单数据失败");
     } finally {
       setIsLoading(false);
     }
-  }, [apiUrl]);
+  }, [apiUrl, onCountsUpdate]);
   
   // 获取物流公司和货代商数据
   const fetchData = useCallback(async () => {

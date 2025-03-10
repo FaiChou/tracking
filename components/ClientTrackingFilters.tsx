@@ -22,6 +22,10 @@ export default function ClientTrackingFilters() {
   const [logisticsCompanies, setLogisticsCompanies] = useState<{ id: string; name: string }[]>([]);
   const [forwarders, setForwarders] = useState<{ id: string; name: string }[]>([]);
   
+  // 添加统计数据状态
+  const [totalCount, setTotalCount] = useState(0);
+  const [filteredCount, setFilteredCount] = useState(0);
+  
   // 获取物流公司和货代商数据
   useEffect(() => {
     // 获取物流公司列表
@@ -35,6 +39,21 @@ export default function ClientTrackingFilters() {
       .then(res => res.json())
       .then(data => setForwarders(data))
       .catch(err => console.error("Failed to fetch forwarders:", err));
+  }, []);
+  
+  // 监听统计数据更新事件
+  useEffect(() => {
+    const handleCountsUpdate = (event: CustomEvent) => {
+      const { total, filtered } = event.detail;
+      setTotalCount(total);
+      setFilteredCount(filtered);
+    };
+    
+    window.addEventListener("tracking:counts", handleCountsUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener("tracking:counts", handleCountsUpdate as EventListener);
+    };
   }, []);
   
   // 应用过滤条件
@@ -76,6 +95,14 @@ export default function ClientTrackingFilters() {
     setLogisticsCompanyId("all");
     setForwarderId("all");
     router.push("/");
+  };
+  
+  // 计算过滤状态文本
+  const getFilterStatusText = () => {
+    if (filteredCount === totalCount) {
+      return `共 ${totalCount} 条运单`;
+    }
+    return `显示 ${filteredCount} / ${totalCount} 条运单`;
   };
   
   return (
@@ -131,6 +158,9 @@ export default function ClientTrackingFilters() {
       </div>
       
       <div className="flex items-center gap-2 ml-auto">
+        <span className="text-sm text-muted-foreground">
+          {getFilterStatusText()}
+        </span>
         <Button variant="outline" size="sm" onClick={clearFilters}>
           清除
         </Button>

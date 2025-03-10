@@ -18,7 +18,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Keyboard } from "lucide-react";
 
 type AddTrackingDialogProps = {
   onSuccess?: () => void;
@@ -32,6 +32,23 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
   const [forwarders, setForwarders] = useState<{ id: string; name: string; color: string }[]>([]);
   const [logisticsCompanies, setLogisticsCompanies] = useState<{ id: string; name: string; color: string; trackingUrl: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 添加快捷键支持
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 检测 Ctrl+J 或 Command+J
+      if ((e.ctrlKey || e.metaKey) && e.key === 'j') {
+        e.preventDefault(); // 阻止默认行为
+        setIsOpen(true);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
   
   useEffect(() => {
     // 获取货代商列表
@@ -109,6 +126,10 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
       <Button onClick={() => setIsOpen(true)}>
         <Plus className="h-4 w-4 mr-2" />
         添加运单
+        <span className="ml-2 text-xs opacity-70 flex items-center">
+          <Keyboard className="h-3 w-3 mr-1" />
+          {/Mac|iPhone|iPad|iPod/.test(navigator.userAgent) ? '⌘J' : 'Ctrl+J'}
+        </span>
       </Button>
       
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -126,6 +147,7 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
                 value={trackingNumbers}
                 onChange={(e) => setTrackingNumbers(e.target.value)}
                 className="font-mono"
+                autoFocus
               />
               <p className="text-sm text-muted-foreground">
                 已输入 {trackingNumbers.split("\n").filter(n => n.trim()).length} 个运单号
