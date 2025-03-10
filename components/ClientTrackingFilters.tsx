@@ -37,15 +37,40 @@ export default function ClientTrackingFilters() {
       .catch(err => console.error("Failed to fetch forwarders:", err));
   }, []);
   
-  const applyFilters = () => {
+  // 应用过滤条件
+  const applyFilters = (newStatus?: string, newLogisticsCompanyId?: string, newForwarderId?: string) => {
     const params = new URLSearchParams();
-    if (status && status !== "all") params.set("status", status);
-    if (logisticsCompanyId && logisticsCompanyId !== "all") params.set("logisticsCompanyId", logisticsCompanyId);
-    if (forwarderId && forwarderId !== "all") params.set("forwarderId", forwarderId);
+    
+    const statusToApply = newStatus !== undefined ? newStatus : status;
+    const logisticsCompanyIdToApply = newLogisticsCompanyId !== undefined ? newLogisticsCompanyId : logisticsCompanyId;
+    const forwarderIdToApply = newForwarderId !== undefined ? newForwarderId : forwarderId;
+    
+    if (statusToApply && statusToApply !== "all") params.set("status", statusToApply);
+    if (logisticsCompanyIdToApply && logisticsCompanyIdToApply !== "all") params.set("logisticsCompanyId", logisticsCompanyIdToApply);
+    if (forwarderIdToApply && forwarderIdToApply !== "all") params.set("forwarderId", forwarderIdToApply);
     
     router.push(`/?${params.toString()}`);
   };
   
+  // 处理状态变化
+  const handleStatusChange = (value: string) => {
+    setStatus(value);
+    applyFilters(value);
+  };
+  
+  // 处理物流公司变化
+  const handleLogisticsCompanyChange = (value: string) => {
+    setLogisticsCompanyId(value);
+    applyFilters(undefined, value);
+  };
+  
+  // 处理货代商变化
+  const handleForwarderChange = (value: string) => {
+    setForwarderId(value);
+    applyFilters(undefined, undefined, value);
+  };
+  
+  // 清除过滤条件
   const clearFilters = () => {
     setStatus("all");
     setLogisticsCompanyId("all");
@@ -57,7 +82,7 @@ export default function ClientTrackingFilters() {
     <div className="bg-card p-3 rounded-lg border flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium whitespace-nowrap">状态:</span>
-        <Select value={status} onValueChange={setStatus}>
+        <Select value={status} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-[120px] h-9">
             <SelectValue placeholder="选择状态" />
           </SelectTrigger>
@@ -73,7 +98,7 @@ export default function ClientTrackingFilters() {
       
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium whitespace-nowrap">物流公司:</span>
-        <Select value={logisticsCompanyId} onValueChange={setLogisticsCompanyId}>
+        <Select value={logisticsCompanyId} onValueChange={handleLogisticsCompanyChange}>
           <SelectTrigger className="w-[150px] h-9">
             <SelectValue placeholder="选择物流公司" />
           </SelectTrigger>
@@ -90,7 +115,7 @@ export default function ClientTrackingFilters() {
       
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium whitespace-nowrap">货代商:</span>
-        <Select value={forwarderId} onValueChange={setForwarderId}>
+        <Select value={forwarderId} onValueChange={handleForwarderChange}>
           <SelectTrigger className="w-[150px] h-9">
             <SelectValue placeholder="选择货代商" />
           </SelectTrigger>
@@ -108,9 +133,6 @@ export default function ClientTrackingFilters() {
       <div className="flex items-center gap-2 ml-auto">
         <Button variant="outline" size="sm" onClick={clearFilters}>
           清除
-        </Button>
-        <Button size="sm" onClick={applyFilters}>
-          应用
         </Button>
       </div>
     </div>

@@ -1,10 +1,13 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import TrackingList from "./TrackingList";
 
 export default function ClientTrackingList() {
   const searchParams = useSearchParams();
+  // 添加刷新计数器状态
+  const [refreshCounter, setRefreshCounter] = useState(0);
   
   // 从 URL 参数中提取过滤条件
   const status = searchParams.get("status");
@@ -17,5 +20,21 @@ export default function ClientTrackingList() {
   if (logisticsCompanyId) apiUrl += `logisticsCompanyId=${logisticsCompanyId}&`;
   if (forwarderId) apiUrl += `forwarderId=${forwarderId}&`;
   
-  return <TrackingList apiUrl={apiUrl} />;
+  // 添加刷新函数
+  const refreshList = () => {
+    setRefreshCounter(prev => prev + 1);
+  };
+  
+  // 监听添加运单事件
+  useEffect(() => {
+    // 添加自定义事件监听器
+    window.addEventListener("tracking:added", refreshList);
+    
+    // 清理函数
+    return () => {
+      window.removeEventListener("tracking:added", refreshList);
+    };
+  }, []);
+  
+  return <TrackingList apiUrl={apiUrl} refreshCounter={refreshCounter} />;
 } 

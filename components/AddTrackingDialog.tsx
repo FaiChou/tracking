@@ -28,7 +28,9 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
   const [isOpen, setIsOpen] = useState(false);
   const [trackingNumbers, setTrackingNumbers] = useState("");
   const [forwarderId, setForwarderId] = useState("none");
+  const [logisticsCompanyId, setLogisticsCompanyId] = useState("none");
   const [forwarders, setForwarders] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [logisticsCompanies, setLogisticsCompanies] = useState<{ id: string; name: string; color: string; trackingUrl: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   useEffect(() => {
@@ -37,6 +39,12 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
       .then(res => res.json())
       .then(data => setForwarders(data))
       .catch(err => console.error("Failed to fetch forwarders:", err));
+    
+    // 获取物流公司列表
+    fetch("/api/logistics-companies")
+      .then(res => res.json())
+      .then(data => setLogisticsCompanies(data))
+      .catch(err => console.error("Failed to fetch logistics companies:", err));
   }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,6 +77,7 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
         body: JSON.stringify({
           trackingNumbers: numbers,
           forwarderId: forwarderId === "none" ? undefined : forwarderId,
+          logisticsCompanyId: logisticsCompanyId === "none" ? undefined : logisticsCompanyId,
         }),
       });
       
@@ -76,7 +85,12 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
         toast.success(`成功添加 ${numbers.length} 个运单号`);
         setTrackingNumbers("");
         setForwarderId("none");
+        setLogisticsCompanyId("none");
         setIsOpen(false);
+        
+        // 触发自定义事件，通知列表刷新
+        window.dispatchEvent(new CustomEvent("tracking:added"));
+        
         if (onSuccess) onSuccess();
       } else {
         const error = await res.json();
@@ -118,27 +132,52 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
               </p>
             </div>
             
-            <div className="space-y-2">
-              <label className="text-sm font-medium">货代商</label>
-              <Select value={forwarderId} onValueChange={setForwarderId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择货代商（可选）" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">无</SelectItem>
-                  {forwarders.map((forwarder) => (
-                    <SelectItem key={forwarder.id} value={forwarder.id}>
-                      <div className="flex items-center">
-                        <div 
-                          className="w-3 h-3 rounded-full mr-2" 
-                          style={{ backgroundColor: forwarder.color }}
-                        />
-                        {forwarder.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">物流公司</label>
+                <Select value={logisticsCompanyId} onValueChange={setLogisticsCompanyId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择物流公司（可选）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">无</SelectItem>
+                    {logisticsCompanies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        <div className="flex items-center">
+                          <div 
+                            className="w-3 h-3 rounded-full mr-2" 
+                            style={{ backgroundColor: company.color }}
+                          />
+                          {company.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">货代商</label>
+                <Select value={forwarderId} onValueChange={setForwarderId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择货代商（可选）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">无</SelectItem>
+                    {forwarders.map((forwarder) => (
+                      <SelectItem key={forwarder.id} value={forwarder.id}>
+                        <div className="flex items-center">
+                          <div 
+                            className="w-3 h-3 rounded-full mr-2" 
+                            style={{ backgroundColor: forwarder.color }}
+                          />
+                          {forwarder.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             <DialogFooter>

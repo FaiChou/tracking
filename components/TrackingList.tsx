@@ -38,7 +38,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TrackingStatus } from "@prisma/client";
-import { MoreHorizontal, ExternalLink, Archive, Trash2, Search, Pencil, Check, X } from "lucide-react";
+import { MoreHorizontal, ExternalLink, Archive, Trash2, Search, Pencil, Check, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 // 定义运单类型
 type Tracking = {
@@ -47,6 +47,8 @@ type Tracking = {
   status: TrackingStatus;
   note: string | null;
   isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
   logisticsCompany: { id: string; name: string; color: string; trackingUrl: string } | null;
   forwarder: { id: string; name: string; color: string } | null;
 };
@@ -69,9 +71,13 @@ type Forwarder = {
 // 定义组件属性
 interface TrackingListProps {
   apiUrl?: string;
+  refreshCounter?: number;
 }
 
-export default function TrackingList({ apiUrl = "/api/trackings?" }: TrackingListProps) {
+type SortField = "status" | "createdAt";
+type SortOrder = "asc" | "desc";
+
+export default function TrackingList({ apiUrl = "/api/trackings?", refreshCounter = 0 }: TrackingListProps) {
   const [trackings, setTrackings] = useState<Tracking[]>([]);
   const [logisticsCompanies, setLogisticsCompanies] = useState<LogisticsCompany[]>([]);
   const [forwarders, setForwarders] = useState<Forwarder[]>([]);
@@ -81,6 +87,10 @@ export default function TrackingList({ apiUrl = "/api/trackings?" }: TrackingLis
   const [isLoading, setIsLoading] = useState(true);
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState("");
+  
+  // 排序状态
+  const [sortField, setSortField] = useState<SortField>("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   
   // 获取运单数据
   const fetchTrackings = useCallback(async () => {
@@ -119,7 +129,7 @@ export default function TrackingList({ apiUrl = "/api/trackings?" }: TrackingLis
   useEffect(() => {
     fetchData();
     fetchTrackings();
-  }, [fetchData, fetchTrackings]);
+  }, [fetchData, fetchTrackings, refreshCounter]);
   
   // 更新运单状态
   const updateTrackingStatus = async (id: string, status: TrackingStatus) => {
@@ -349,6 +359,41 @@ export default function TrackingList({ apiUrl = "/api/trackings?" }: TrackingLis
     setEditingNote(null);
   };
   
+  // 切换排序
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      // 如果已经按此字段排序，则切换排序顺序
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // 如果是新字段，则设置为此字段并默认降序
+      setSortField(field);
+      setSortOrder("desc");
+    }
+  };
+  
+  // 获取排序图标
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    return sortOrder === "asc" ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+  
+  // 排序运单
+  const sortedTrackings = [...trackings].sort((a, b) => {
+    if (sortField === "status") {
+      // 状态排序
+      const statusOrder = { PENDING: 0, TRANSIT: 1, DELIVERED: 2, EXCEPTION: 3 };
+      const aValue = statusOrder[a.status] || 0;
+      const bValue = statusOrder[b.status] || 0;
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    } else if (sortField === "createdAt") {
+      // 日期排序
+      const aDate = new Date(a.createdAt).getTime();
+      const bDate = new Date(b.createdAt).getTime();
+      return sortOrder === "asc" ? aDate - bDate : bDate - aDate;
+    }
+    return 0;
+  });
+  
   if (isLoading) {
     return <div className="text-center py-8">加载中...</div>;
   }
@@ -389,13 +434,30 @@ export default function TrackingList({ apiUrl = "/api/trackings?" }: TrackingLis
               <TableHead>运单号</TableHead>
               <TableHead>物流公司</TableHead>
               <TableHead>货代商</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>备注</TableHead>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  className="p-0 h-auto font-semibold flex items-center"
+                  onClick={() => toggleSort("status")}
+                >
+                  状态{getSortIcon("status")}
+                </Button>
+              </TableHead>
+              <TableHead className="w-[250px]">备注</TableHead>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  className="p-0 h-auto font-semibold flex items-center"
+                  onClick={() => toggleSort("createdAt")}
+                >
+                  添加日期{getSortIcon("createdAt")}
+                </Button>
+              </TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {trackings.map((tracking) => (
+            {sortedTrackings.map((tracking) => (
               <TableRow key={tracking.id} className="group">
                 <TableCell>
                   <Checkbox 
@@ -508,6 +570,15 @@ export default function TrackingList({ apiUrl = "/api/trackings?" }: TrackingLis
                     </div>
                   )}
                 </TableCell>
+                <TableCell>
+                  {new Date(tracking.createdAt).toLocaleDateString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end items-center space-x-2">
                     <Button
@@ -520,29 +591,27 @@ export default function TrackingList({ apiUrl = "/api/trackings?" }: TrackingLis
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                     
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => archiveTracking(tracking.id)}>
-                          <Archive className="h-4 w-4 mr-2" />
-                          归档
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setTrackingToDelete(tracking.id);
-                            setDeleteDialogOpen(true);
-                          }}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          删除
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => archiveTracking(tracking.id)}
+                      title="归档"
+                    >
+                      <Archive className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="text-destructive"
+                      onClick={() => {
+                        setTrackingToDelete(tracking.id);
+                        setDeleteDialogOpen(true);
+                      }}
+                      title="删除"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>

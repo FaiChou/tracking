@@ -12,20 +12,29 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { TrackingStatus } from "@prisma/client";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 type Tracking = {
   id: string;
   trackingNumber: string;
   status: TrackingStatus;
   note: string | null;
+  createdAt: string;
+  updatedAt: string;
   logisticsCompany: { id: string; name: string; color: string; trackingUrl: string } | null;
   forwarder: { id: string; name: string; color: string } | null;
 };
 
+type SortField = "status" | "createdAt";
+type SortOrder = "asc" | "desc";
+
 export default function ArchivedPage() {
   const [archivedTrackings, setArchivedTrackings] = useState<Tracking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // 排序状态
+  const [sortField, setSortField] = useState<SortField>("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   
   // 获取归档运单
   const fetchArchivedTrackings = async () => {
@@ -105,6 +114,41 @@ export default function ArchivedPage() {
     }
   };
   
+  // 切换排序
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      // 如果已经按此字段排序，则切换排序顺序
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // 如果是新字段，则设置为此字段并默认降序
+      setSortField(field);
+      setSortOrder("desc");
+    }
+  };
+  
+  // 获取排序图标
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    return sortOrder === "asc" ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+  
+  // 排序运单
+  const sortedTrackings = [...archivedTrackings].sort((a, b) => {
+    if (sortField === "status") {
+      // 状态排序
+      const statusOrder = { PENDING: 0, TRANSIT: 1, DELIVERED: 2, EXCEPTION: 3 };
+      const aValue = statusOrder[a.status] || 0;
+      const bValue = statusOrder[b.status] || 0;
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    } else if (sortField === "createdAt") {
+      // 日期排序
+      const aDate = new Date(a.createdAt).getTime();
+      const bDate = new Date(b.createdAt).getTime();
+      return sortOrder === "asc" ? aDate - bDate : bDate - aDate;
+    }
+    return 0;
+  });
+  
   if (isLoading) {
     return <div className="text-center py-8">加载中...</div>;
   }
@@ -122,7 +166,10 @@ export default function ArchivedPage() {
   
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">归档运单</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">归档运单</h1>
+        <p className="text-sm text-muted-foreground">显示最近200条归档记录</p>
+      </div>
       
       <div className="rounded-md border">
         <Table>
@@ -131,13 +178,30 @@ export default function ArchivedPage() {
               <TableHead>运单号</TableHead>
               <TableHead>物流公司</TableHead>
               <TableHead>货代商</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>备注</TableHead>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  className="p-0 h-auto font-semibold flex items-center"
+                  onClick={() => toggleSort("status")}
+                >
+                  状态{getSortIcon("status")}
+                </Button>
+              </TableHead>
+              <TableHead className="w-[250px]">备注</TableHead>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  className="p-0 h-auto font-semibold flex items-center"
+                  onClick={() => toggleSort("createdAt")}
+                >
+                  添加日期{getSortIcon("createdAt")}
+                </Button>
+              </TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {archivedTrackings.map((tracking) => (
+            {sortedTrackings.map((tracking) => (
               <TableRow key={tracking.id}>
                 <TableCell className="font-medium">{tracking.trackingNumber}</TableCell>
                 <TableCell>
@@ -170,6 +234,15 @@ export default function ArchivedPage() {
                   {getStatusText(tracking.status)}
                 </TableCell>
                 <TableCell>{tracking.note || "-"}</TableCell>
+                <TableCell>
+                  {new Date(tracking.createdAt).toLocaleDateString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end items-center space-x-2">
                     <Button

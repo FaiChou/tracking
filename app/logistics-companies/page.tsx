@@ -346,7 +346,7 @@ export default function LogisticsCompaniesPage() {
                 placeholder="例如：https://www.ups.com/track?tracknum="
               />
               <p className="text-sm text-muted-foreground">
-                输入查询网址，运单号将自动拼接在网址后面
+                输入查询网址，运单号将自动拼接在网址后面(比如: https://t.17track.net/zh-cn#nums=)
               </p>
             </div>
             
