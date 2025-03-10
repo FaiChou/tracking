@@ -517,9 +517,6 @@ export default function TrackingList({
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground mb-4">暂无运单数据</p>
-        <Button asChild>
-          <Link href="/add">添加运单</Link>
-        </Button>
       </div>
     );
   }
