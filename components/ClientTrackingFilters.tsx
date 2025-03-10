@@ -162,7 +162,7 @@ export default function ClientTrackingFilters() {
           {getFilterStatusText()}
         </span>
         <Button variant="outline" size="sm" onClick={clearFilters}>
-          清除
+          重置过滤
         </Button>
       </div>
     </div>
