@@ -466,7 +466,7 @@ export default function TrackingList({
   };
   
   // 复制选中的运单信息
-  const copySelectedTrackings = () => {
+  const copySelectedTrackings = async () => {
     if (selectedTrackings.length === 0) {
       toast.error("请选择至少一个运单");
       return;
@@ -484,29 +484,70 @@ export default function TrackingList({
       .filter(Boolean)
       .join('\n');
     
-    // 复制到剪贴板
-    navigator.clipboard.writeText(selectedTrackingInfo)
-      .then(() => {
+    try {
+      // 检查是否支持 clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(selectedTrackingInfo);
         toast.success(`已复制 ${selectedTrackings.length} 个运单信息到剪贴板`);
-      })
-      .catch(err => {
-        console.error("Failed to copy trackings:", err);
-        toast.error("复制运单信息失败");
-      });
+      } else {
+        // 降级方案：使用传统的复制方法
+        const textArea = document.createElement('textarea');
+        textArea.value = selectedTrackingInfo;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          document.execCommand('copy');
+          toast.success(`已复制 ${selectedTrackings.length} 个运单信息到剪贴板`);
+        } catch (err) {
+          toast.error('复制失败，请手动复制');
+        }
+        
+        textArea.remove();
+      }
+    } catch (err) {
+      console.error("Failed to copy trackings:", err);
+      toast.error("复制运单信息失败");
+    }
   };
   
   // 复制单个运单信息
-  const copySingleTracking = (tracking: Tracking) => {
+  const copySingleTracking = async (tracking: Tracking) => {
     const trackingInfo = `${tracking.trackingNumber}${tracking.note ? ` ${tracking.note}` : ''}`;
     
-    navigator.clipboard.writeText(trackingInfo)
-      .then(() => {
+    try {
+      // 检查是否支持 clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(trackingInfo);
         toast.success("已复制运单信息到剪贴板");
-      })
-      .catch(err => {
-        console.error("Failed to copy tracking:", err);
-        toast.error("复制运单信息失败");
-      });
+      } else {
+        // 降级方案：使用传统的复制方法
+        const textArea = document.createElement('textarea');
+        textArea.value = trackingInfo;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          document.execCommand('copy');
+          toast.success("已复制运单信息到剪贴板");
+        } catch (err) {
+          toast.error('复制失败，请手动复制');
+        }
+        
+        textArea.remove();
+      }
+    } catch (err) {
+      console.error("Failed to copy tracking:", err);
+      toast.error("复制运单信息失败");
+    }
   };
   
   if (isLoading) {
@@ -558,7 +599,7 @@ export default function TrackingList({
                 />
               </TableHead>
               <TableHead>运单号</TableHead>
-              <TableHead className="w-[250px]">备注</TableHead>
+              <TableHead className="min-w-[200px] max-w-[300px]">备注</TableHead>
               <TableHead>物流公司</TableHead>
               <TableHead>货代商</TableHead>
               <TableHead>
@@ -592,7 +633,7 @@ export default function TrackingList({
                   />
                 </TableCell>
                 <TableCell className="font-medium">{tracking.trackingNumber}</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-pre-wrap break-words">
                   {editingNote === tracking.id ? (
                     <div className="flex items-center space-x-2">
                       <Input
@@ -620,12 +661,12 @@ export default function TrackingList({
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <span>{tracking.note || "-"}</span>
+                      <span className="flex-1">{tracking.note || "-"}</span>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => startEditingNote(tracking.id, tracking.note)}
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 flex-shrink-0"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
