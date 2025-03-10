@@ -1,0 +1,59 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 物流公司模型
+model LogisticsCompany {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  color       String      @default("#000000")
+  trackingUrl String      // 查询网址，后面拼接运单号
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  trackings   Tracking[]
+}
+
+// 货代商模型
+model Forwarder {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  color     String      @default("#000000")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  trackings Tracking[]
+}
+
+// 运单状态枚举
+enum TrackingStatus {
+  PENDING    // 待处理
+  TRANSIT    // 运输中
+  DELIVERED  // 已签收
+  EXCEPTION  // 物流异常
+}
+
+// 运单模型
+model Tracking {
+  id                String          @id @default(cuid())
+  trackingNumber    String          @unique
+  status            TrackingStatus  @default(PENDING)
+  note              String?         // 备注
+  isArchived        Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // 关联物流公司
+  logisticsCompany  LogisticsCompany? @relation(fields: [logisticsCompanyId], references: [id])
+  logisticsCompanyId String?
+  
+  // 关联货代商
+  forwarder         Forwarder?      @relation(fields: [forwarderId], references: [id])
+  forwarderId       String?
+}
