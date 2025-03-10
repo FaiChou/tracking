@@ -65,7 +65,7 @@ export async function PATCH(
     
     // 更新物流公司
     const updatedLogisticsCompany = await prisma.logisticsCompany.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         ...(name && { name }),
         ...(color && { color }),
