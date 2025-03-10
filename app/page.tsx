@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import TrackingList from "@/components/TrackingList";
-import TrackingFilters from "@/components/TrackingFilters";
+import ClientTrackingList from "@/components/ClientTrackingList";
+import ClientTrackingFilters from "@/components/ClientTrackingFilters";
 import AddTrackingDialog from "@/components/AddTrackingDialog";
 
 export default function Home() {
@@ -11,10 +11,12 @@ export default function Home() {
         <AddTrackingDialog />
       </div>
       
-      <TrackingFilters />
+      <Suspense fallback={<div className="bg-card p-3 rounded-lg border">加载过滤条件中...</div>}>
+        <ClientTrackingFilters />
+      </Suspense>
       
       <Suspense fallback={<div>加载中...</div>}>
-        <TrackingList />
+        <ClientTrackingList />
       </Suspense>
     </div>
   );

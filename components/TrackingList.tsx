@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { 
   Table, 
   TableBody, 
@@ -67,8 +66,12 @@ type Forwarder = {
   color: string;
 };
 
-export default function TrackingList() {
-  const searchParams = useSearchParams();
+// 定义组件属性
+interface TrackingListProps {
+  apiUrl?: string;
+}
+
+export default function TrackingList({ apiUrl = "/api/trackings?" }: TrackingListProps) {
   const [trackings, setTrackings] = useState<Tracking[]>([]);
   const [logisticsCompanies, setLogisticsCompanies] = useState<LogisticsCompany[]>([]);
   const [forwarders, setForwarders] = useState<Forwarder[]>([]);
@@ -83,16 +86,7 @@ export default function TrackingList() {
   const fetchTrackings = useCallback(async () => {
     setIsLoading(true);
     try {
-      const status = searchParams.get("status");
-      const logisticsCompanyId = searchParams.get("logisticsCompanyId");
-      const forwarderId = searchParams.get("forwarderId");
-      
-      let url = "/api/trackings?";
-      if (status) url += `status=${status}&`;
-      if (logisticsCompanyId) url += `logisticsCompanyId=${logisticsCompanyId}&`;
-      if (forwarderId) url += `forwarderId=${forwarderId}&`;
-      
-      const res = await fetch(url);
+      const res = await fetch(apiUrl);
       const data = await res.json();
       setTrackings(data);
     } catch (error) {
@@ -101,7 +95,7 @@ export default function TrackingList() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchParams]);
+  }, [apiUrl]);
   
   // 获取物流公司和货代商数据
   const fetchData = useCallback(async () => {
