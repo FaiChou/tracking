@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { 
@@ -80,7 +80,7 @@ export default function TrackingList() {
   const [noteValue, setNoteValue] = useState("");
   
   // 获取运单数据
-  const fetchTrackings = async () => {
+  const fetchTrackings = useCallback(async () => {
     setIsLoading(true);
     try {
       const status = searchParams.get("status");
@@ -101,10 +101,10 @@ export default function TrackingList() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchParams]);
   
   // 获取物流公司和货代商数据
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [logisticsRes, forwardersRes] = await Promise.all([
         fetch("/api/logistics-companies"),
@@ -119,13 +119,13 @@ export default function TrackingList() {
     } catch (error) {
       console.error("Failed to fetch data:", error);
     }
-  };
+  }, []);
   
   // 组件加载时获取数据
   useEffect(() => {
     fetchData();
     fetchTrackings();
-  }, [searchParams]);
+  }, [fetchData, fetchTrackings]);
   
   // 更新运单状态
   const updateTrackingStatus = async (id: string, status: TrackingStatus) => {
@@ -296,22 +296,6 @@ export default function TrackingList() {
         return "text-red-600";
       default:
         return "";
-    }
-  };
-  
-  // 获取状态文本
-  const getStatusText = (status: TrackingStatus) => {
-    switch (status) {
-      case "PENDING":
-        return "待处理";
-      case "TRANSIT":
-        return "运输中";
-      case "DELIVERED":
-        return "已签收";
-      case "EXCEPTION":
-        return "物流异常";
-      default:
-        return "未知";
     }
   };
   

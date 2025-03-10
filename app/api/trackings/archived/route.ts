@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // 获取归档运单列表
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const archivedTrackings = await prisma.tracking.findMany({
       where: {

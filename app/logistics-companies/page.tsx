@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Table, 
   TableBody, 
@@ -16,8 +16,7 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter,
-  DialogTrigger
+  DialogFooter
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -112,10 +111,10 @@ export default function LogisticsCompaniesPage() {
   };
   
   // 使用示例
-  const useExample = (example: { name: string; trackingUrl: string }) => {
+  const applyExample = useCallback((example: { name: string; trackingUrl: string }) => {
     setName(example.name);
     setTrackingUrl(example.trackingUrl);
-  };
+  }, []);
   
   // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
@@ -285,7 +284,7 @@ export default function LogisticsCompaniesPage() {
                     key={example.name} 
                     variant="outline" 
                     size="sm"
-                    onClick={() => useExample(example)}
+                    onClick={() => applyExample(example)}
                   >
                     {example.name}
                   </Button>

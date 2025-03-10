@@ -1,6 +1,4 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import TrackingList from "@/components/TrackingList";
 import TrackingFilters from "@/components/TrackingFilters";
 import AddTrackingDialog from "@/components/AddTrackingDialog";
