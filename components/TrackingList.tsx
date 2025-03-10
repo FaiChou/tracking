@@ -32,7 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TrackingStatus } from "@prisma/client";
-import { ExternalLink, Archive, Trash2, Search, Pencil, Check, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ExternalLink, Archive, Trash2, Search, Pencil, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Copy } from "lucide-react";
 
 // 定义运单类型
 type Tracking = {
@@ -83,6 +83,7 @@ export default function TrackingList({
   const [selectedTrackings, setSelectedTrackings] = useState<string[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [trackingToDelete, setTrackingToDelete] = useState<string | null>(null);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState("");
@@ -404,6 +405,110 @@ export default function TrackingList({
     return 0;
   });
   
+  // 批量删除运单
+  const batchDeleteTrackings = async () => {
+    if (selectedTrackings.length === 0) {
+      toast.error("请选择至少一个运单");
+      return;
+    }
+    
+    try {
+      // 使用Promise.all并行处理所有删除请求
+      await Promise.all(
+        selectedTrackings.map(id => 
+          fetch(`/api/trackings/${id}`, {
+            method: "DELETE",
+          })
+        )
+      );
+      
+      // 从列表中移除已删除的运单
+      setTrackings(trackings.filter(tracking => !selectedTrackings.includes(tracking.id)));
+      toast.success(`成功删除 ${selectedTrackings.length} 个运单`);
+      
+      // 清空选择
+      setSelectedTrackings([]);
+    } catch (error) {
+      console.error("Failed to batch delete trackings:", error);
+      toast.error("批量删除运单失败");
+    } finally {
+      setBatchDeleteDialogOpen(false);
+    }
+  };
+  
+  // 批量归档运单
+  const batchArchiveTrackings = async () => {
+    if (selectedTrackings.length === 0) {
+      toast.error("请选择至少一个运单");
+      return;
+    }
+    
+    try {
+      // 使用Promise.all并行处理所有归档请求
+      await Promise.all(
+        selectedTrackings.map(id => 
+          fetch(`/api/trackings/${id}/archive`, {
+            method: "POST",
+          })
+        )
+      );
+      
+      // 从列表中移除已归档的运单
+      setTrackings(trackings.filter(tracking => !selectedTrackings.includes(tracking.id)));
+      toast.success(`成功归档 ${selectedTrackings.length} 个运单`);
+      
+      // 清空选择
+      setSelectedTrackings([]);
+    } catch (error) {
+      console.error("Failed to batch archive trackings:", error);
+      toast.error("批量归档运单失败");
+    }
+  };
+  
+  // 复制选中的运单信息
+  const copySelectedTrackings = () => {
+    if (selectedTrackings.length === 0) {
+      toast.error("请选择至少一个运单");
+      return;
+    }
+    
+    // 获取选中运单的信息
+    const selectedTrackingInfo = selectedTrackings
+      .map(id => {
+        const tracking = trackings.find(t => t.id === id);
+        if (!tracking) return null;
+        
+        // 格式化为"运单号 备注"的形式
+        return `${tracking.trackingNumber}${tracking.note ? ` ${tracking.note}` : ''}`;
+      })
+      .filter(Boolean)
+      .join('\n');
+    
+    // 复制到剪贴板
+    navigator.clipboard.writeText(selectedTrackingInfo)
+      .then(() => {
+        toast.success(`已复制 ${selectedTrackings.length} 个运单信息到剪贴板`);
+      })
+      .catch(err => {
+        console.error("Failed to copy trackings:", err);
+        toast.error("复制运单信息失败");
+      });
+  };
+  
+  // 复制单个运单信息
+  const copySingleTracking = (tracking: Tracking) => {
+    const trackingInfo = `${tracking.trackingNumber}${tracking.note ? ` ${tracking.note}` : ''}`;
+    
+    navigator.clipboard.writeText(trackingInfo)
+      .then(() => {
+        toast.success("已复制运单信息到剪贴板");
+      })
+      .catch(err => {
+        console.error("Failed to copy tracking:", err);
+        toast.error("复制运单信息失败");
+      });
+  };
+  
   if (isLoading) {
     return <div className="text-center py-8">加载中...</div>;
   }
@@ -424,10 +529,24 @@ export default function TrackingList({
       {selectedTrackings.length > 0 && (
         <div className="flex items-center justify-between bg-muted p-2 rounded-md">
           <span>已选择 {selectedTrackings.length} 个运单</span>
-          <Button onClick={search17Track} size="sm">
-            <Search className="h-4 w-4 mr-2" />
-            17Track 批量查询
-          </Button>
+          <div className="flex space-x-2">
+            <Button onClick={copySelectedTrackings} size="sm" variant="outline">
+              <Copy className="h-4 w-4 mr-2" />
+              复制信息
+            </Button>
+            <Button onClick={() => setBatchDeleteDialogOpen(true)} size="sm" variant="outline" className="text-destructive">
+              <Trash2 className="h-4 w-4 mr-2" />
+              全部删除
+            </Button>
+            <Button onClick={batchArchiveTrackings} size="sm" variant="outline">
+              <Archive className="h-4 w-4 mr-2" />
+              全部归档
+            </Button>
+            <Button onClick={search17Track} size="sm">
+              <Search className="h-4 w-4 mr-2" />
+              17Track 批量查询
+            </Button>
+          </div>
         </div>
       )}
       
@@ -442,6 +561,7 @@ export default function TrackingList({
                 />
               </TableHead>
               <TableHead>运单号</TableHead>
+              <TableHead className="w-[250px]">备注</TableHead>
               <TableHead>物流公司</TableHead>
               <TableHead>货代商</TableHead>
               <TableHead>
@@ -453,7 +573,6 @@ export default function TrackingList({
                   状态{getSortIcon("status")}
                 </Button>
               </TableHead>
-              <TableHead className="w-[250px]">备注</TableHead>
               <TableHead>
                 <Button 
                   variant="ghost" 
@@ -476,6 +595,46 @@ export default function TrackingList({
                   />
                 </TableCell>
                 <TableCell className="font-medium">{tracking.trackingNumber}</TableCell>
+                <TableCell>
+                  {editingNote === tracking.id ? (
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        value={noteValue}
+                        onChange={(e) => setNoteValue(e.target.value)}
+                        className="h-8"
+                        autoFocus
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => updateNote(tracking.id, noteValue)}
+                        className="h-8 w-8"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={cancelEditingNote}
+                        className="h-8 w-8"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span>{tracking.note || "-"}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => startEditingNote(tracking.id, tracking.note)}
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Select
                     value={tracking.logisticsCompany?.id || "none"}
@@ -541,46 +700,6 @@ export default function TrackingList({
                   </Select>
                 </TableCell>
                 <TableCell>
-                  {editingNote === tracking.id ? (
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        value={noteValue}
-                        onChange={(e) => setNoteValue(e.target.value)}
-                        className="h-8"
-                        autoFocus
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => updateNote(tracking.id, noteValue)}
-                        className="h-8 w-8"
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={cancelEditingNote}
-                        className="h-8 w-8"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <span>{tracking.note || "-"}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => startEditingNote(tracking.id, tracking.note)}
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
                   {new Date(tracking.createdAt).toLocaleDateString('zh-CN', {
                     year: 'numeric',
                     month: '2-digit',
@@ -591,6 +710,15 @@ export default function TrackingList({
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => copySingleTracking(tracking)}
+                      title="复制信息"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    
                     <Button
                       variant="outline"
                       size="icon"
@@ -642,7 +770,27 @@ export default function TrackingList({
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => trackingToDelete && deleteTracking(trackingToDelete)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={batchDeleteDialogOpen} onOpenChange={setBatchDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认批量删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              您确定要删除选中的 {selectedTrackings.length} 个运单吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={batchDeleteTrackings}
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               删除
             </AlertDialogAction>
