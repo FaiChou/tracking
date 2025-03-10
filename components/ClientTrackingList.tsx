@@ -8,9 +8,6 @@ export default function ClientTrackingList() {
   const searchParams = useSearchParams();
   // 添加刷新计数器状态
   const [refreshCounter, setRefreshCounter] = useState(0);
-  // 添加统计数据状态
-  const [totalCount, setTotalCount] = useState(0);
-  const [filteredCount, setFilteredCount] = useState(0);
   
   // 从 URL 参数中提取过滤条件
   const status = searchParams.get("status");
@@ -41,9 +38,6 @@ export default function ClientTrackingList() {
   
   // 更新统计数据的回调函数
   const updateCounts = (total: number, filtered: number) => {
-    setTotalCount(total);
-    setFilteredCount(filtered);
-    
     // 触发自定义事件，通知过滤器组件更新统计数据
     window.dispatchEvent(new CustomEvent("tracking:counts", { 
       detail: { total, filtered } 
