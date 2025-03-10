@@ -18,7 +18,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Keyboard } from "lucide-react";
+import { Plus } from "lucide-react";
 
 type AddTrackingDialogProps = {
   onSuccess?: () => void;
@@ -126,10 +126,6 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
       <Button onClick={() => setIsOpen(true)}>
         <Plus className="h-4 w-4 mr-2" />
         添加运单
-        <span className="ml-2 text-xs opacity-70 flex items-center">
-          <Keyboard className="h-3 w-3 mr-1" />
-          {/Mac|iPhone|iPad|iPod/.test(navigator.userAgent) ? '⌘J' : 'Ctrl+J'}
-        </span>
       </Button>
       
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
