@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { 
   Table, 
   TableBody, 
@@ -503,14 +502,15 @@ export default function TrackingList({
         try {
           document.execCommand('copy');
           toast.success(`已复制 ${selectedTrackings.length} 个运单信息到剪贴板`);
-        } catch (err) {
+        } catch (error) {
+          console.error("Failed to copy trackings:", error);
           toast.error('复制失败，请手动复制');
         }
         
         textArea.remove();
       }
-    } catch (err) {
-      console.error("Failed to copy trackings:", err);
+    } catch (error) {
+      console.error("Failed to copy trackings:", error);
       toast.error("复制运单信息失败");
     }
   };
@@ -538,14 +538,15 @@ export default function TrackingList({
         try {
           document.execCommand('copy');
           toast.success("已复制运单信息到剪贴板");
-        } catch (err) {
+        } catch (error) {
+          console.error("Failed to copy tracking:", error);
           toast.error('复制失败，请手动复制');
         }
         
         textArea.remove();
       }
-    } catch (err) {
-      console.error("Failed to copy tracking:", err);
+    } catch (error) {
+      console.error("Failed to copy tracking:", error);
       toast.error("复制运单信息失败");
     }
   };
