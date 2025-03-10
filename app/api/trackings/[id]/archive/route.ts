@@ -4,12 +4,12 @@ import prisma from "@/lib/prisma";
 // 归档运单
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 检查运单是否存在
     const tracking = await prisma.tracking.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     if (!tracking) {
@@ -21,7 +21,7 @@ export async function POST(
     
     // 归档运单
     const archivedTracking = await prisma.tracking.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { isArchived: true },
     });
     

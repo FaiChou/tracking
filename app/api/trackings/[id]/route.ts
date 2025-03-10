@@ -4,11 +4,11 @@ import prisma from "@/lib/prisma";
 // 获取单个运单
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const tracking = await prisma.tracking.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         logisticsCompany: {
           select: {
@@ -48,7 +48,7 @@ export async function GET(
 // 更新运单
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json();
@@ -56,7 +56,7 @@ export async function PATCH(
     
     // 检查运单是否存在
     const tracking = await prisma.tracking.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     if (!tracking) {
@@ -68,7 +68,7 @@ export async function PATCH(
     
     // 更新运单
     const updatedTracking = await prisma.tracking.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         ...(status !== undefined && { status }),
         ...(logisticsCompanyId !== undefined && { logisticsCompanyId }),
@@ -107,12 +107,12 @@ export async function PATCH(
 // 删除运单
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 检查运单是否存在
     const tracking = await prisma.tracking.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     if (!tracking) {
@@ -124,7 +124,7 @@ export async function DELETE(
     
     // 删除运单
     await prisma.tracking.delete({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     return NextResponse.json({ message: "运单已删除" });

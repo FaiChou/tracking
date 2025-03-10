@@ -4,11 +4,11 @@ import prisma from "@/lib/prisma";
 // 获取单个物流公司
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const logisticsCompany = await prisma.logisticsCompany.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     if (!logisticsCompany) {
@@ -31,7 +31,7 @@ export async function GET(
 // 更新物流公司
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json();
@@ -39,7 +39,7 @@ export async function PATCH(
     
     // 检查物流公司是否存在
     const logisticsCompany = await prisma.logisticsCompany.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     if (!logisticsCompany) {
@@ -86,12 +86,12 @@ export async function PATCH(
 // 删除物流公司
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 检查物流公司是否存在
     const logisticsCompany = await prisma.logisticsCompany.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     if (!logisticsCompany) {
@@ -103,20 +103,20 @@ export async function DELETE(
     
     // 检查是否有关联的运单
     const trackingsCount = await prisma.tracking.count({
-      where: { logisticsCompanyId: params.id },
+      where: { logisticsCompanyId: (await params).id },
     });
     
     if (trackingsCount > 0) {
       // 更新关联的运单，将物流公司设为 null
       await prisma.tracking.updateMany({
-        where: { logisticsCompanyId: params.id },
+        where: { logisticsCompanyId: (await params).id },
         data: { logisticsCompanyId: null },
       });
     }
     
     // 删除物流公司
     await prisma.logisticsCompany.delete({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     return NextResponse.json({ message: "物流公司已删除" });

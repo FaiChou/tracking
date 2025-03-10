@@ -4,11 +4,11 @@ import prisma from "@/lib/prisma";
 // 获取单个货代商
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const forwarder = await prisma.forwarder.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     if (!forwarder) {
@@ -31,7 +31,7 @@ export async function GET(
 // 更新货代商
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json();
@@ -39,7 +39,7 @@ export async function PATCH(
     
     // 检查货代商是否存在
     const forwarder = await prisma.forwarder.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     if (!forwarder) {
@@ -65,7 +65,7 @@ export async function PATCH(
     
     // 更新货代商
     const updatedForwarder = await prisma.forwarder.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         ...(name && { name }),
         ...(color && { color }),
@@ -85,12 +85,12 @@ export async function PATCH(
 // 删除货代商
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 检查货代商是否存在
     const forwarder = await prisma.forwarder.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     if (!forwarder) {
@@ -102,20 +102,20 @@ export async function DELETE(
     
     // 检查是否有关联的运单
     const trackingsCount = await prisma.tracking.count({
-      where: { forwarderId: params.id },
+      where: { forwarderId: (await params).id },
     });
     
     if (trackingsCount > 0) {
       // 更新关联的运单，将货代商设为 null
       await prisma.tracking.updateMany({
-        where: { forwarderId: params.id },
+        where: { forwarderId: (await params).id },
         data: { forwarderId: null },
       });
     }
     
     // 删除货代商
     await prisma.forwarder.delete({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     
     return NextResponse.json({ message: "货代商已删除" });
