@@ -589,7 +589,7 @@ export default function TrackingList({
           <div className="flex space-x-2">
             <Button onClick={copySelectedTrackings} size="sm" variant="outline">
               <Copy className="h-4 w-4 mr-2" />
-              复制信息
+              复制单号
             </Button>
             <Button onClick={() => setBatchDeleteDialogOpen(true)} size="sm" variant="outline" className="text-destructive">
               <Trash2 className="h-4 w-4 mr-2" />
