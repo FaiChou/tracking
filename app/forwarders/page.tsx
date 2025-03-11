@@ -230,7 +230,7 @@ export default function ForwardersPage() {
                   <TableCell>
                     {forwarder.address ? (
                       <button 
-                        className="text-left hover:text-primary hover:underline whitespace-pre-line"
+                        className="text-left hover:text-primary cursor-pointer whitespace-pre-line"
                         onClick={() => copyAddressToClipboard(forwarder.address || "")}
                         title="点击复制地址"
                       >
@@ -364,7 +364,7 @@ export default function ForwardersPage() {
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction 
               onClick={deleteForwarder}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               删除
             </AlertDialogAction>
