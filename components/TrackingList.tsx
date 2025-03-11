@@ -676,7 +676,7 @@ export default function TrackingList({
                     value={tracking.logisticsCompany?.id || "none"}
                     onValueChange={(value) => updateLogisticsCompany(tracking.id, value)}
                   >
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[140px]">
                       <SelectValue placeholder="选择物流公司" />
                     </SelectTrigger>
                     <SelectContent>
@@ -700,7 +700,7 @@ export default function TrackingList({
                     value={tracking.forwarder?.id || "none"}
                     onValueChange={(value) => updateForwarder(tracking.id, value)}
                   >
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[140px]">
                       <SelectValue placeholder="选择货代商" />
                     </SelectTrigger>
                     <SelectContent>
@@ -724,14 +724,14 @@ export default function TrackingList({
                     value={tracking.status}
                     onValueChange={(value) => updateTrackingStatus(tracking.id, value as TrackingStatus)}
                   >
-                    <SelectTrigger className={`w-[120px] ${getStatusColor(tracking.status)}`}>
+                    <SelectTrigger className={`w-[100px] ${getStatusColor(tracking.status)}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={TrackingStatus.PENDING}>待处理</SelectItem>
                       <SelectItem value={TrackingStatus.TRANSIT}>运输中</SelectItem>
                       <SelectItem value={TrackingStatus.DELIVERED}>已签收</SelectItem>
-                      <SelectItem value={TrackingStatus.EXCEPTION}>物流异常</SelectItem>
+                      <SelectItem value={TrackingStatus.EXCEPTION}>异常</SelectItem>
                     </SelectContent>
                   </Select>
                 </TableCell>

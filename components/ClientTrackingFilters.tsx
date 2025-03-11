@@ -118,7 +118,7 @@ export default function ClientTrackingFilters() {
             <SelectItem value={TrackingStatus.PENDING}>待处理</SelectItem>
             <SelectItem value={TrackingStatus.TRANSIT}>运输中</SelectItem>
             <SelectItem value={TrackingStatus.DELIVERED}>已签收</SelectItem>
-            <SelectItem value={TrackingStatus.EXCEPTION}>物流异常</SelectItem>
+            <SelectItem value={TrackingStatus.EXCEPTION}>异常</SelectItem>
           </SelectContent>
         </Select>
       </div>

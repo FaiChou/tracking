@@ -36,7 +36,7 @@ enum TrackingStatus {
   PENDING    // 待处理
   TRANSIT    // 运输中
   DELIVERED  // 已签收
-  EXCEPTION  // 物流异常
+  EXCEPTION  // 异常
 }
 
 // 运单模型

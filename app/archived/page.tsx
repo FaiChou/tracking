@@ -108,7 +108,7 @@ export default function ArchivedPage() {
       case "DELIVERED":
         return "已签收";
       case "EXCEPTION":
-        return "物流异常";
+        return "异常";
       default:
         return "未知";
     }
