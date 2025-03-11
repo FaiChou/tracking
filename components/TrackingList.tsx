@@ -274,51 +274,13 @@ export default function TrackingList({
     }
   };
   
-  // 批量查询 17track
-  const search17Track = () => {
-    if (selectedTrackings.length === 0) {
-      toast.error("请选择至少一个运单");
-      return;
-    }
-    
-    const trackingNumbers = selectedTrackings
-      .map(id => trackings.find(t => t.id === id)?.trackingNumber)
-      .filter(Boolean)
-      .join(",");
-    
-    window.open(`https://t.17track.net/zh-cn#nums=${trackingNumbers}`, "_blank");
-  };
-  
-  // 官网查询
-  const searchOfficial = (tracking: Tracking) => {
-    if (!tracking.logisticsCompany?.trackingUrl) {
-      toast.error("未设置物流公司或查询网址");
-      return;
-    }
-    
-    window.open(`${tracking.logisticsCompany.trackingUrl}${tracking.trackingNumber}`, "_blank");
-  };
-  
-  // 获取状态颜色
-  const getStatusColor = (status: TrackingStatus) => {
-    switch (status) {
-      case "DELIVERED":
-        return "text-green-600";
-      case "TRANSIT":
-        return "text-blue-600";
-      case "EXCEPTION":
-        return "text-red-600";
-      default:
-        return "";
-    }
-  };
-  
   // 全选/取消全选
   const toggleSelectAll = () => {
     if (selectedTrackings.length === trackings.length) {
       setSelectedTrackings([]);
     } else {
-      setSelectedTrackings(trackings.map(t => t.id));
+      // 使用sortedTrackings而不是trackings，确保选择顺序与显示顺序一致
+      setSelectedTrackings(sortedTrackings.map(t => t.id));
     }
   };
   
@@ -471,8 +433,13 @@ export default function TrackingList({
       return;
     }
     
+    // 按照界面显示顺序获取运单号
+    const orderedTrackingIds = sortedTrackings
+      .filter(tracking => selectedTrackings.includes(tracking.id))
+      .map(tracking => tracking.id);
+    
     // 获取选中运单的信息
-    const selectedTrackingInfo = selectedTrackings
+    const selectedTrackingInfo = orderedTrackingIds
       .map(id => {
         const tracking = trackings.find(t => t.id === id);
         if (!tracking) return null;
@@ -548,6 +515,55 @@ export default function TrackingList({
     }
   };
   
+  // 取消所有选择
+  const clearAllSelections = () => {
+    setSelectedTrackings([]);
+  };
+  
+  // 批量查询 17track
+  const search17Track = () => {
+    if (selectedTrackings.length === 0) {
+      toast.error("请选择至少一个运单");
+      return;
+    }
+    
+    // 按照界面显示顺序获取运单号
+    const orderedTrackingIds = sortedTrackings
+      .filter(tracking => selectedTrackings.includes(tracking.id))
+      .map(tracking => tracking.id);
+    
+    const trackingNumbers = orderedTrackingIds
+      .map(id => trackings.find(t => t.id === id)?.trackingNumber)
+      .filter(Boolean)
+      .join(",");
+    
+    window.open(`https://t.17track.net/zh-cn#nums=${trackingNumbers}`, "_blank");
+  };
+  
+  // 官网查询
+  const searchOfficial = (tracking: Tracking) => {
+    if (!tracking.logisticsCompany?.trackingUrl) {
+      toast.error("未设置物流公司或查询网址");
+      return;
+    }
+    
+    window.open(`${tracking.logisticsCompany.trackingUrl}${tracking.trackingNumber}`, "_blank");
+  };
+  
+  // 获取状态颜色
+  const getStatusColor = (status: TrackingStatus) => {
+    switch (status) {
+      case "DELIVERED":
+        return "text-green-600";
+      case "TRANSIT":
+        return "text-blue-600";
+      case "EXCEPTION":
+        return "text-red-600";
+      default:
+        return "";
+    }
+  };
+  
   if (isLoading) {
     return <div className="text-center py-8">加载中...</div>;
   }
@@ -564,7 +580,12 @@ export default function TrackingList({
     <div className="space-y-4">
       {selectedTrackings.length > 0 && (
         <div className="flex items-center justify-between bg-muted p-2 rounded-md">
-          <span>已选择 {selectedTrackings.length} 个运单</span>
+          <div className="flex items-center space-x-2">
+            <span>已选择 {selectedTrackings.length} 个运单</span>
+            <Button onClick={clearAllSelections} size="sm" variant="ghost" className="text-muted-foreground">
+              取消选择
+            </Button>
+          </div>
           <div className="flex space-x-2">
             <Button onClick={copySelectedTrackings} size="sm" variant="outline">
               <Copy className="h-4 w-4 mr-2" />
