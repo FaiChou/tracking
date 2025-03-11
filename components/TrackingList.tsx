@@ -621,23 +621,14 @@ export default function TrackingList({
               <TableHead className="min-w-[200px] max-w-[300px]">备注</TableHead>
               <TableHead>物流公司</TableHead>
               <TableHead>货代商</TableHead>
+              <TableHead>状态</TableHead>
               <TableHead>
-                <Button 
-                  variant="ghost" 
-                  className="p-0 h-auto font-semibold flex items-center"
-                  onClick={() => toggleSort("status")}
-                >
-                  状态{getSortIcon("status")}
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button 
-                  variant="ghost" 
-                  className="p-0 h-auto font-semibold flex items-center"
+                <div
+                  className="font-semibold cursor-pointer flex items-center"
                   onClick={() => toggleSort("createdAt")}
                 >
                   添加日期{getSortIcon("createdAt")}
-                </Button>
+                </div>
               </TableHead>
               <TableHead className="w-[60px]">添加天数</TableHead>
               <TableHead className="text-right">操作</TableHead>
