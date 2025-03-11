@@ -652,7 +652,15 @@ export default function TrackingList({
                     onCheckedChange={() => toggleSelect(tracking.id)}
                   />
                 </TableCell>
-                <TableCell className="font-medium">{tracking.trackingNumber}</TableCell>
+                <TableCell className="font-medium">
+                  <button 
+                    onClick={() => copySingleTracking(tracking)} 
+                    className="hover:text-primary cursor-pointer flex items-center"
+                    title="点击复制运单号"
+                  >
+                    {tracking.trackingNumber}
+                  </button>
+                </TableCell>
                 <TableCell className="whitespace-pre-wrap break-words">
                   {editingNote === tracking.id ? (
                     <div className="flex items-center space-x-2">
@@ -774,15 +782,6 @@ export default function TrackingList({
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => copySingleTracking(tracking)}
-                      title="复制信息"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    
                     <Button
                       variant="outline"
                       size="icon"
