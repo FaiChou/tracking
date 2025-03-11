@@ -643,6 +643,13 @@ export default function TrackingList({
                         onChange={(e) => setNoteValue(e.target.value)}
                         className="h-8"
                         autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            updateNote(tracking.id, noteValue);
+                          } else if (e.key === 'Escape') {
+                            cancelEditingNote();
+                          }
+                        }}
                       />
                       <Button
                         variant="ghost"
