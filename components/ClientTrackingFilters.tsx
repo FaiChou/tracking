@@ -210,7 +210,7 @@ export default function ClientTrackingFilters() {
           onClick={handleUrgentChange}
           className="h-9"
         >
-          <Flame className={`h-4 w-4 mr-2 ${isUrgentOnly ? 'text-white' : 'text-red-500'}`} />
+          <Flame className={"h-4 w-4 mr-2 text-red-500"} />
           仅看加急
         </Button>
       </div>
