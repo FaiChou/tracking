@@ -43,7 +43,7 @@ export default function RootLayout({
             </main>
             <footer className="border-t py-4 text-center text-sm text-muted-foreground">
               <div className="container mx-auto">
-                运单号管理系统 &copy; {new Date().getFullYear()} FaiChou.
+                运单号管理系统 &copy; {new Date().getFullYear()} FaiChou
               </div>
             </footer>
           </div>
