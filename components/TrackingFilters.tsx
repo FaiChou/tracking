@@ -16,8 +16,8 @@ export default function TrackingFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const [logisticsCompanies, setLogisticsCompanies] = useState<{ id: string; name: string }[]>([]);
-  const [forwarders, setForwarders] = useState<{ id: string; name: string }[]>([]);
+  const [logisticsCompanies, setLogisticsCompanies] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [forwarders, setForwarders] = useState<{ id: string; name: string; color: string }[]>([]);
   
   const [status, setStatus] = useState(searchParams.get("status") || "all");
   const [logisticsCompanyId, setLogisticsCompanyId] = useState(searchParams.get("logisticsCompanyId") || "all");
@@ -53,6 +53,20 @@ export default function TrackingFilters() {
     router.push("/");
   };
   
+  // 获取状态颜色
+  const getStatusColor = (status: TrackingStatus) => {
+    switch (status) {
+      case "DELIVERED":
+        return "text-green-600";
+      case "TRANSIT":
+        return "text-blue-600";
+      case "EXCEPTION":
+        return "text-red-600";
+      default:
+        return "";
+    }
+  };
+  
   return (
     <div className="bg-card p-3 rounded-lg border flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">
@@ -63,10 +77,18 @@ export default function TrackingFilters() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部状态</SelectItem>
-            <SelectItem value={TrackingStatus.PENDING}>待处理</SelectItem>
-            <SelectItem value={TrackingStatus.TRANSIT}>运输中</SelectItem>
-            <SelectItem value={TrackingStatus.DELIVERED}>已签收</SelectItem>
-            <SelectItem value={TrackingStatus.EXCEPTION}>物流异常</SelectItem>
+            <SelectItem value={TrackingStatus.PENDING} className="">
+              待处理
+            </SelectItem>
+            <SelectItem value={TrackingStatus.TRANSIT} className={getStatusColor(TrackingStatus.TRANSIT)}>
+              运输中
+            </SelectItem>
+            <SelectItem value={TrackingStatus.DELIVERED} className={getStatusColor(TrackingStatus.DELIVERED)}>
+              已签收
+            </SelectItem>
+            <SelectItem value={TrackingStatus.EXCEPTION} className={getStatusColor(TrackingStatus.EXCEPTION)}>
+              物流异常
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -81,7 +103,13 @@ export default function TrackingFilters() {
             <SelectItem value="all">全部物流公司</SelectItem>
             {logisticsCompanies.map(company => (
               <SelectItem key={company.id} value={company.id}>
-                {company.name}
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2" 
+                    style={{ backgroundColor: company.color }}
+                  />
+                  {company.name}
+                </div>
               </SelectItem>
             ))}
           </SelectContent>
@@ -98,7 +126,13 @@ export default function TrackingFilters() {
             <SelectItem value="all">全部货代商</SelectItem>
             {forwarders.map(forwarder => (
               <SelectItem key={forwarder.id} value={forwarder.id}>
-                {forwarder.name}
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2" 
+                    style={{ backgroundColor: forwarder.color }}
+                  />
+                  {forwarder.name}
+                </div>
               </SelectItem>
             ))}
           </SelectContent>
