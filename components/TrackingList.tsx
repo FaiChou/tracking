@@ -639,6 +639,7 @@ export default function TrackingList({
                   添加日期{getSortIcon("createdAt")}
                 </Button>
               </TableHead>
+              <TableHead className="w-[60px]">添加天数</TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -697,7 +698,7 @@ export default function TrackingList({
                     value={tracking.logisticsCompany?.id || "none"}
                     onValueChange={(value) => updateLogisticsCompany(tracking.id, value)}
                   >
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-[120px]">
                       <SelectValue placeholder="选择物流公司" />
                     </SelectTrigger>
                     <SelectContent>
@@ -721,7 +722,7 @@ export default function TrackingList({
                     value={tracking.forwarder?.id || "none"}
                     onValueChange={(value) => updateForwarder(tracking.id, value)}
                   >
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-[120px]">
                       <SelectValue placeholder="选择货代商" />
                     </SelectTrigger>
                     <SelectContent>
@@ -757,13 +758,19 @@ export default function TrackingList({
                   </Select>
                 </TableCell>
                 <TableCell>
-                  {new Date(tracking.createdAt).toLocaleDateString('zh-CN', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(tracking.createdAt).toLocaleDateString('zh-CN', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="text-xs">
+                    {Math.floor((new Date().getTime() - new Date(tracking.createdAt).getTime()) / (1000 * 60 * 60 * 24))}天
+                  </span>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end items-center space-x-2">
