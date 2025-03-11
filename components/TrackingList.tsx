@@ -476,9 +476,7 @@ export default function TrackingList({
       .map(id => {
         const tracking = trackings.find(t => t.id === id);
         if (!tracking) return null;
-        
-        // 格式化为"运单号 备注"的形式
-        return `${tracking.trackingNumber}${tracking.note ? ` ${tracking.note}` : ''}`;
+        return tracking.trackingNumber;
       })
       .filter(Boolean)
       .join('\n');
@@ -517,8 +515,7 @@ export default function TrackingList({
   
   // 复制单个运单信息
   const copySingleTracking = async (tracking: Tracking) => {
-    const trackingInfo = `${tracking.trackingNumber}${tracking.note ? ` ${tracking.note}` : ''}`;
-    
+    const trackingInfo = tracking.trackingNumber;
     try {
       // 检查是否支持 clipboard API
       if (navigator.clipboard && window.isSecureContext) {
