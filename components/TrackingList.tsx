@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TrackingStatus } from "@prisma/client";
 import { ExternalLink, Archive, Trash2, Search, Pencil, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Copy, Flame } from "lucide-react";
+import { copyToClipboard } from "@/lib/utils";
 
 // 定义运单类型
 type Tracking = {
@@ -60,6 +61,7 @@ type Forwarder = {
   id: string;
   name: string;
   color: string;
+  address?: string;
 };
 
 // 定义组件属性
@@ -474,71 +476,15 @@ export default function TrackingList({
       .filter(Boolean)
       .join('\n');
     
-    try {
-      // 检查是否支持 clipboard API
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(selectedTrackingInfo);
-        toast.success(`已复制 ${selectedTrackings.length} 个运单信息到剪贴板`);
-      } else {
-        // 降级方案：使用传统的复制方法
-        const textArea = document.createElement('textarea');
-        textArea.value = selectedTrackingInfo;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-          document.execCommand('copy');
-          toast.success(`已复制 ${selectedTrackings.length} 个运单信息到剪贴板`);
-        } catch (error) {
-          console.error("Failed to copy trackings:", error);
-          toast.error('复制失败，请手动复制');
-        }
-        
-        textArea.remove();
-      }
-    } catch (error) {
-      console.error("Failed to copy trackings:", error);
-      toast.error("复制运单信息失败");
-    }
+    await copyToClipboard(
+      selectedTrackingInfo, 
+      `已复制 ${selectedTrackings.length} 个运单信息到剪贴板`
+    );
   };
   
-  // 复制单个运单信息
+  // 复制单个运单号
   const copySingleTracking = async (tracking: Tracking) => {
-    const trackingInfo = tracking.trackingNumber;
-    try {
-      // 检查是否支持 clipboard API
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(trackingInfo);
-        toast.success("已复制运单信息到剪贴板");
-      } else {
-        // 降级方案：使用传统的复制方法
-        const textArea = document.createElement('textarea');
-        textArea.value = trackingInfo;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-          document.execCommand('copy');
-          toast.success("已复制运单信息到剪贴板");
-        } catch (error) {
-          console.error("Failed to copy tracking:", error);
-          toast.error('复制失败，请手动复制');
-        }
-        
-        textArea.remove();
-      }
-    } catch (error) {
-      console.error("Failed to copy tracking:", error);
-      toast.error("复制运单信息失败");
-    }
+    await copyToClipboard(tracking.trackingNumber, "运单号已复制到剪贴板");
   };
   
   // 取消所有选择

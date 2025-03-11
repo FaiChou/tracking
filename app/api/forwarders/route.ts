@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // 获取货代商列表
 export async function GET() {
@@ -24,7 +25,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, color } = body;
+    const { name, color, address } = body;
     
     if (!name) {
       return NextResponse.json(
@@ -45,11 +46,19 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // 创建数据对象
+    const data = {
+      name,
+      color: color || "#000000",
+    } as Record<string, string | null>;
+    
+    // 如果有地址，添加到数据对象
+    if (address !== undefined) {
+      data.address = address;
+    }
+    
     const forwarder = await prisma.forwarder.create({
-      data: {
-        name,
-        color: color || "#000000",
-      },
+      data: data as unknown as Prisma.ForwarderCreateInput,
     });
     
     return NextResponse.json(forwarder);

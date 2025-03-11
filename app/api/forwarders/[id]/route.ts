@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // 获取单个货代商
 export async function GET(
@@ -35,7 +36,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { name, color } = body;
+    const { name, color, address } = body;
     
     // 检查货代商是否存在
     const forwarder = await prisma.forwarder.findUnique({
@@ -63,13 +64,21 @@ export async function PATCH(
       }
     }
     
+    // 创建更新数据对象
+    const data = {} as Record<string, string | null>;
+    
+    if (name) data.name = name;
+    if (color) data.color = color;
+    
+    // 地址可以是空字符串或 null，所以需要特殊处理
+    if (address !== undefined) {
+      data.address = address;
+    }
+    
     // 更新货代商
     const updatedForwarder = await prisma.forwarder.update({
       where: { id: (await params).id },
-      data: {
-        ...(name && { name }),
-        ...(color && { color }),
-      },
+      data: data as unknown as Prisma.ForwarderUpdateInput,
     });
     
     return NextResponse.json(updatedForwarder);

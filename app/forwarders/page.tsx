@@ -31,11 +31,13 @@ import {
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import { copyToClipboard } from "@/lib/utils";
 
 type Forwarder = {
   id: string;
   name: string;
   color: string;
+  address?: string;
 };
 
 // 常用颜色选择
@@ -64,6 +66,7 @@ export default function ForwardersPage() {
   const [editingForwarder, setEditingForwarder] = useState<Forwarder | null>(null);
   const [name, setName] = useState("");
   const [color, setColor] = useState("#000000");
+  const [address, setAddress] = useState("");
   
   // 获取货代商列表
   const fetchForwarders = async () => {
@@ -90,9 +93,11 @@ export default function ForwardersPage() {
     if (forwarder) {
       setName(forwarder.name);
       setColor(forwarder.color);
+      setAddress(forwarder.address || "");
     } else {
       setName("");
       setColor("#000000");
+      setAddress("");
     }
     setIsDialogOpen(true);
   };
@@ -118,7 +123,7 @@ export default function ForwardersPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ name, color }),
+          body: JSON.stringify({ name, color, address }),
         });
       } else {
         // 创建
@@ -127,7 +132,7 @@ export default function ForwardersPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ name, color }),
+          body: JSON.stringify({ name, color, address }),
         });
       }
       
@@ -172,6 +177,11 @@ export default function ForwardersPage() {
     }
   };
   
+  // 复制地址到剪贴板
+  const copyAddressToClipboard = (address: string) => {
+    copyToClipboard(address, "地址已复制到剪贴板");
+  };
+  
   if (isLoading) {
     return <div className="text-center py-8">加载中...</div>;
   }
@@ -200,6 +210,7 @@ export default function ForwardersPage() {
               <TableRow>
                 <TableHead>名称</TableHead>
                 <TableHead>颜色</TableHead>
+                <TableHead>货代地址</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -216,6 +227,19 @@ export default function ForwardersPage() {
                     </div>
                   </TableCell>
                   <TableCell>{forwarder.color}</TableCell>
+                  <TableCell>
+                    {forwarder.address ? (
+                      <button 
+                        className="text-left hover:text-primary hover:underline whitespace-pre-line"
+                        onClick={() => copyAddressToClipboard(forwarder.address || "")}
+                        title="点击复制地址"
+                      >
+                        {forwarder.address}
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground italic">未设置</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
                       <Button
@@ -296,6 +320,18 @@ export default function ForwardersPage() {
                   />
                 ))}
               </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="address">地址</Label>
+              <textarea
+                id="address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="输入货代商地址"
+                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                rows={5}
+              />
             </div>
             
             <DialogFooter>
