@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { TrackingStatus } from "@prisma/client";
+import { Flame } from "lucide-react";
 
 export default function ClientTrackingFilters() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function ClientTrackingFilters() {
   const [status, setStatus] = useState(searchParams.get("status") || "all");
   const [logisticsCompanyId, setLogisticsCompanyId] = useState(searchParams.get("logisticsCompanyId") || "all");
   const [forwarderId, setForwarderId] = useState(searchParams.get("forwarderId") || "all");
+  const [isUrgentOnly, setIsUrgentOnly] = useState(searchParams.get("isUrgent") === "true");
   const [logisticsCompanies, setLogisticsCompanies] = useState<{ id: string; name: string; color: string }[]>([]);
   const [forwarders, setForwarders] = useState<{ id: string; name: string; color: string }[]>([]);
   
@@ -57,16 +59,18 @@ export default function ClientTrackingFilters() {
   }, []);
   
   // 应用过滤条件
-  const applyFilters = (newStatus?: string, newLogisticsCompanyId?: string, newForwarderId?: string) => {
+  const applyFilters = (newStatus?: string, newLogisticsCompanyId?: string, newForwarderId?: string, newIsUrgent?: boolean) => {
     const params = new URLSearchParams();
     
     const statusToApply = newStatus !== undefined ? newStatus : status;
     const logisticsCompanyIdToApply = newLogisticsCompanyId !== undefined ? newLogisticsCompanyId : logisticsCompanyId;
     const forwarderIdToApply = newForwarderId !== undefined ? newForwarderId : forwarderId;
+    const isUrgentToApply = newIsUrgent !== undefined ? newIsUrgent : isUrgentOnly;
     
     if (statusToApply && statusToApply !== "all") params.set("status", statusToApply);
     if (logisticsCompanyIdToApply && logisticsCompanyIdToApply !== "all") params.set("logisticsCompanyId", logisticsCompanyIdToApply);
     if (forwarderIdToApply && forwarderIdToApply !== "all") params.set("forwarderId", forwarderIdToApply);
+    if (isUrgentToApply) params.set("isUrgent", "true");
     
     router.push(`/?${params.toString()}`);
   };
@@ -89,11 +93,19 @@ export default function ClientTrackingFilters() {
     applyFilters(undefined, undefined, value);
   };
   
+  // 处理加急状态变化
+  const handleUrgentChange = () => {
+    const newIsUrgent = !isUrgentOnly;
+    setIsUrgentOnly(newIsUrgent);
+    applyFilters(undefined, undefined, undefined, newIsUrgent);
+  };
+  
   // 清除过滤条件
   const clearFilters = () => {
     setStatus("all");
     setLogisticsCompanyId("all");
     setForwarderId("all");
+    setIsUrgentOnly(false);
     router.push("/");
   };
   
@@ -189,6 +201,18 @@ export default function ClientTrackingFilters() {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button
+          variant={isUrgentOnly ? "default" : "outline"}
+          size="sm"
+          onClick={handleUrgentChange}
+          className="h-9"
+        >
+          <Flame className={`h-4 w-4 mr-2 ${isUrgentOnly ? 'text-white' : 'text-red-500'}`} />
+          仅看加急
+        </Button>
       </div>
       
       <div className="flex items-center gap-2 ml-auto">

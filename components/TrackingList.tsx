@@ -31,7 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TrackingStatus } from "@prisma/client";
-import { ExternalLink, Archive, Trash2, Search, Pencil, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Copy } from "lucide-react";
+import { ExternalLink, Archive, Trash2, Search, Pencil, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Copy, Flame } from "lucide-react";
 
 // 定义运单类型
 type Tracking = {
@@ -40,6 +40,7 @@ type Tracking = {
   status: TrackingStatus;
   note: string | null;
   isArchived: boolean;
+  isUrgent: boolean;
   createdAt: string;
   updatedAt: string;
   logisticsCompany: { id: string; name: string; color: string; trackingUrl: string } | null;
@@ -317,6 +318,31 @@ export default function TrackingList({
       toast.error("更新备注失败");
     } finally {
       setEditingNote(null);
+    }
+  };
+  
+  // 切换加急状态
+  const toggleUrgent = async (id: string, currentUrgent: boolean) => {
+    try {
+      const res = await fetch(`/api/trackings/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isUrgent: !currentUrgent }),
+      });
+      
+      if (res.ok) {
+        setTrackings(trackings.map(tracking => 
+          tracking.id === id ? { ...tracking, isUrgent: !currentUrgent } : tracking
+        ));
+        toast.success(currentUrgent ? "已取消加急" : "已设为加急");
+      } else {
+        toast.error("更新加急状态失败");
+      }
+    } catch (error) {
+      console.error("Failed to update urgent status:", error);
+      toast.error("更新加急状态失败");
     }
   };
   
@@ -644,13 +670,24 @@ export default function TrackingList({
                   />
                 </TableCell>
                 <TableCell className="font-medium">
-                  <button 
-                    onClick={() => copySingleTracking(tracking)} 
-                    className="hover:text-primary cursor-pointer flex items-center"
-                    title="点击复制运单号"
-                  >
-                    {tracking.trackingNumber}
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => copySingleTracking(tracking)} 
+                      className={`hover:text-primary cursor-pointer flex items-center ${tracking.isUrgent ? 'text-red-500 font-bold' : ''}`}
+                      title="点击复制运单号"
+                    >
+                      {tracking.trackingNumber}
+                    </button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => toggleUrgent(tracking.id, tracking.isUrgent)}
+                      className={`h-6 w-6 ${tracking.isUrgent ? 'text-red-500' : 'opacity-0 group-hover:opacity-100'}`}
+                      title={tracking.isUrgent ? "取消加急" : "设为加急"}
+                    >
+                      <Flame className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
                 <TableCell className="whitespace-pre-wrap break-words">
                   {editingNote === tracking.id ? (

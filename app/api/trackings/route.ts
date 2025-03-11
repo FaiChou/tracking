@@ -9,12 +9,14 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") as TrackingStatus | null;
     const logisticsCompanyId = searchParams.get("logisticsCompanyId");
     const forwarderId = searchParams.get("forwarderId");
+    const isUrgent = searchParams.get("isUrgent") === "true";
     
     const where = {
       isArchived: false,
       ...(status && { status }),
       ...(logisticsCompanyId && { logisticsCompanyId }),
       ...(forwarderId && { forwarderId }),
+      ...(isUrgent && { isUrgent: true }),
     };
     
     const trackings = await prisma.tracking.findMany({

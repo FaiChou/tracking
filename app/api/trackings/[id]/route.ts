@@ -52,7 +52,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { status, logisticsCompanyId, forwarderId, note } = body;
+    const { status, logisticsCompanyId, forwarderId, note, isUrgent } = body;
     
     // 检查运单是否存在
     const tracking = await prisma.tracking.findUnique({
@@ -74,6 +74,7 @@ export async function PATCH(
         ...(logisticsCompanyId !== undefined && { logisticsCompanyId }),
         ...(forwarderId !== undefined && { forwarderId }),
         ...(note !== undefined && { note }),
+        ...(isUrgent !== undefined && { isUrgent }),
       },
       include: {
         logisticsCompany: {

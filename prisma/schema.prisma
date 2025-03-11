@@ -46,6 +46,7 @@ model Tracking {
   status            TrackingStatus  @default(PENDING)
   note              String?         // 备注
   isArchived        Boolean         @default(false)
+  isUrgent          Boolean         @default(false)  // 是否加急
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   

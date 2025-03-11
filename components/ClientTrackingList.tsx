@@ -13,12 +13,14 @@ export default function ClientTrackingList() {
   const status = searchParams.get("status");
   const logisticsCompanyId = searchParams.get("logisticsCompanyId");
   const forwarderId = searchParams.get("forwarderId");
+  const isUrgent = searchParams.get("isUrgent") === "true";
   
   // 构建 API URL
   let apiUrl = "/api/trackings?";
   if (status) apiUrl += `status=${status}&`;
   if (logisticsCompanyId) apiUrl += `logisticsCompanyId=${logisticsCompanyId}&`;
   if (forwarderId) apiUrl += `forwarderId=${forwarderId}&`;
+  if (isUrgent) apiUrl += `isUrgent=true&`;
   
   // 添加刷新函数
   const refreshList = () => {
