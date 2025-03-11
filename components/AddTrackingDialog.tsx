@@ -72,13 +72,30 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
       return;
     }
     
-    // 分割运单号，每行一个
-    const numbers = trackingNumbers
+    // 分割运单号，每行一个，并解析备注
+    const trackingsWithNotes = trackingNumbers
       .split("\n")
-      .map(n => n.trim())
+      .map(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) return null;
+        
+        // 查找第一个空格的位置
+        const firstSpaceIndex = trimmedLine.indexOf(' ');
+        
+        // 如果没有空格，则整行都是运单号
+        if (firstSpaceIndex === -1) {
+          return { trackingNumber: trimmedLine, note: null };
+        }
+        
+        // 分割运单号和备注
+        const trackingNumber = trimmedLine.substring(0, firstSpaceIndex).trim();
+        const note = trimmedLine.substring(firstSpaceIndex + 1).trim() || null;
+        
+        return { trackingNumber, note };
+      })
       .filter(Boolean);
     
-    if (numbers.length === 0) {
+    if (trackingsWithNotes.length === 0) {
       toast.error("请输入至少一个有效的运单号");
       return;
     }
@@ -92,14 +109,14 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          trackingNumbers: numbers,
+          trackingsWithNotes,
           forwarderId: forwarderId === "none" ? undefined : forwarderId,
           logisticsCompanyId: logisticsCompanyId === "none" ? undefined : logisticsCompanyId,
         }),
       });
       
       if (res.ok) {
-        toast.success(`成功添加 ${numbers.length} 个运单号`);
+        toast.success(`成功添加 ${trackingsWithNotes.length} 个运单号`);
         setTrackingNumbers("");
         setForwarderId("none");
         setLogisticsCompanyId("none");
@@ -138,7 +155,7 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
             <div className="space-y-2">
               <label className="text-sm font-medium">运单号</label>
               <Textarea
-                placeholder="请输入运单号，每行一个"
+                placeholder="请输入运单号，每行一个。格式：运单号 备注（备注可选）"
                 rows={10}
                 value={trackingNumbers}
                 onChange={(e) => setTrackingNumbers(e.target.value)}
@@ -147,6 +164,9 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
               />
               <p className="text-sm text-muted-foreground">
                 已输入 {trackingNumbers.split("\n").filter(n => n.trim()).length} 个运单号
+              </p>
+              <p className="text-sm text-muted-foreground">
+                提示：每行一个运单，如需添加备注，请在运单号后加空格，然后输入备注
               </p>
             </div>
             
