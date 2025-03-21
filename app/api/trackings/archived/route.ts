@@ -28,7 +28,7 @@ export async function GET() {
       orderBy: {
         updatedAt: "desc",
       },
-      take: 200, // 只返回最近200条记录
+      take: 500, // 只返回最近500条记录
     });
     
     return NextResponse.json(archivedTrackings);

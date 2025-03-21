@@ -125,7 +125,6 @@ export default function ArchivedPage() {
       setSortOrder("desc");
     }
   };
-  
   // 获取排序图标
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1" />;
@@ -178,7 +177,14 @@ export default function ArchivedPage() {
               <TableHead>运单号</TableHead>
               <TableHead>物流公司</TableHead>
               <TableHead>货代商</TableHead>
-              <TableHead>状态</TableHead>
+              <TableHead>
+                <div
+                  className="font-semibold cursor-pointer flex items-center"
+                  onClick={() => toggleSort("status")}
+                >
+                  状态{getSortIcon("status")}
+                </div>
+              </TableHead>
               <TableHead className="w-[250px]">备注</TableHead>
               <TableHead>
                 <div
