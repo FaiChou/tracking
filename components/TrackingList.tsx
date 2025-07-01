@@ -492,6 +492,19 @@ export default function TrackingList({
     setSelectedTrackings([]);
   };
   
+  // 键盘事件处理
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectedTrackings.length > 0) {
+        clearAllSelections();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedTrackings.length]);
+  
   // 批量查询 17track
   const search17Track = () => {
     if (selectedTrackings.length === 0) {
@@ -554,7 +567,7 @@ export default function TrackingList({
         <div className="flex items-center justify-between bg-muted p-2 rounded-md">
           <div className="flex items-center space-x-2">
             <span>已选择 {selectedTrackings.length} 个运单</span>
-            <Button onClick={clearAllSelections} size="sm" variant="ghost" className="text-muted-foreground">
+            <Button onClick={clearAllSelections} size="sm" variant="ghost" className="text-muted-foreground" title="按ESC键快速取消选择">
               取消选择
             </Button>
           </div>
