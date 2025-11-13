@@ -25,7 +25,7 @@ type Tracking = {
   forwarder: { id: string; name: string; color: string } | null;
 };
 
-type SortField = "status" | "createdAt";
+type SortField = "status" | "createdAt" | "updatedAt";
 type SortOrder = "asc" | "desc";
 
 export default function ArchivedPage() {
@@ -33,7 +33,7 @@ export default function ArchivedPage() {
   const [isLoading, setIsLoading] = useState(true);
   
   // 排序状态
-  const [sortField, setSortField] = useState<SortField>("createdAt");
+  const [sortField, setSortField] = useState<SortField>("updatedAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   
   // 获取归档运单
@@ -140,9 +140,14 @@ export default function ArchivedPage() {
       const bValue = statusOrder[b.status] || 0;
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     } else if (sortField === "createdAt") {
-      // 日期排序
+      // 创建日期排序
       const aDate = new Date(a.createdAt).getTime();
       const bDate = new Date(b.createdAt).getTime();
+      return sortOrder === "asc" ? aDate - bDate : bDate - aDate;
+    } else if (sortField === "updatedAt") {
+      // 更新日期排序
+      const aDate = new Date(a.updatedAt).getTime();
+      const bDate = new Date(b.updatedAt).getTime();
       return sortOrder === "asc" ? aDate - bDate : bDate - aDate;
     }
     return 0;
@@ -194,6 +199,14 @@ export default function ArchivedPage() {
                   添加日期{getSortIcon("createdAt")}
                 </div>
               </TableHead>
+              <TableHead>
+                <div
+                  className="font-semibold cursor-pointer flex items-center"
+                  onClick={() => toggleSort("updatedAt")}
+                >
+                  更新日期{getSortIcon("updatedAt")}
+                </div>
+              </TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -233,6 +246,15 @@ export default function ArchivedPage() {
                 <TableCell>{tracking.note || "-"}</TableCell>
                 <TableCell>
                   {new Date(tracking.createdAt).toLocaleDateString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </TableCell>
+                <TableCell>
+                  {new Date(tracking.updatedAt).toLocaleDateString('zh-CN', {
                     year: 'numeric',
                     month: '2-digit',
                     day: '2-digit',
