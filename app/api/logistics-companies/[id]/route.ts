@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { parseSortOrder } from "@/lib/sort-order";
 
 // 获取单个物流公司
 export async function GET(
@@ -35,7 +36,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { name, color, trackingUrl } = body;
+    const { name, color, trackingUrl, sortOrder } = body;
     
     // 检查物流公司是否存在
     const logisticsCompany = await prisma.logisticsCompany.findUnique({
@@ -62,6 +63,15 @@ export async function PATCH(
         );
       }
     }
+
+    const parsedSortOrder = parseSortOrder(sortOrder);
+
+    if (sortOrder !== undefined && parsedSortOrder === null) {
+      return NextResponse.json(
+        { message: "排序序号必须是数字" },
+        { status: 400 }
+      );
+    }
     
     // 更新物流公司
     const updatedLogisticsCompany = await prisma.logisticsCompany.update({
@@ -70,6 +80,7 @@ export async function PATCH(
         ...(name && { name }),
         ...(color && { color }),
         ...(trackingUrl && { trackingUrl }),
+        ...(sortOrder !== undefined && parsedSortOrder !== null && { sortOrder: parsedSortOrder }),
       },
     });
     

@@ -37,6 +37,7 @@ type LogisticsCompany = {
   name: string;
   color: string;
   trackingUrl: string;
+  sortOrder: number;
 };
 
 // 常用物流公司示例
@@ -75,6 +76,7 @@ export default function LogisticsCompaniesPage() {
   const [name, setName] = useState("");
   const [color, setColor] = useState("#000000");
   const [trackingUrl, setTrackingUrl] = useState("");
+  const [sortOrder, setSortOrder] = useState("0");
   
   // 获取物流公司列表
   const fetchCompanies = async () => {
@@ -102,10 +104,12 @@ export default function LogisticsCompaniesPage() {
       setName(company.name);
       setColor(company.color);
       setTrackingUrl(company.trackingUrl);
+      setSortOrder(String(company.sortOrder ?? 0));
     } else {
       setName("");
       setColor("#000000");
       setTrackingUrl("");
+      setSortOrder("0");
     }
     setIsDialogOpen(true);
   };
@@ -137,7 +141,7 @@ export default function LogisticsCompaniesPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ name, color, trackingUrl }),
+          body: JSON.stringify({ name, color, trackingUrl, sortOrder }),
         });
       } else {
         // 创建
@@ -146,7 +150,7 @@ export default function LogisticsCompaniesPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ name, color, trackingUrl }),
+          body: JSON.stringify({ name, color, trackingUrl, sortOrder }),
         });
       }
       
@@ -217,6 +221,7 @@ export default function LogisticsCompaniesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[90px]">排序</TableHead>
                 <TableHead>名称</TableHead>
                 <TableHead>颜色</TableHead>
                 <TableHead>查询网址</TableHead>
@@ -226,6 +231,7 @@ export default function LogisticsCompaniesPage() {
             <TableBody>
               {companies.map((company) => (
                 <TableRow key={company.id}>
+                  <TableCell>{company.sortOrder}</TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center">
                       <div 
@@ -301,6 +307,18 @@ export default function LogisticsCompaniesPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="例如：UPS, FedEx, DHL"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sortOrder">排序序号</Label>
+              <Input
+                id="sortOrder"
+                type="number"
+                step="1"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                placeholder="0"
               />
             </div>
             

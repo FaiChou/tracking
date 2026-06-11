@@ -16,6 +16,7 @@ model LogisticsCompany {
   name        String      @unique
   color       String      @default("#000000")
   trackingUrl String      // 查询网址，后面拼接运单号
+  sortOrder   Int         @default(0) // 排序序号，数字越小越靠前
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   trackings   Tracking[]
@@ -27,6 +28,7 @@ model Forwarder {
   name      String      @unique
   color     String      @default("#000000")
   address   String?     // 货代商地址
+  sortOrder Int         @default(0) // 排序序号，数字越小越靠前
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   trackings Tracking[]

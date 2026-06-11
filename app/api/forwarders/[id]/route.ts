@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { parseSortOrder } from "@/lib/sort-order";
 
 // 获取单个货代商
 export async function GET(
@@ -36,7 +37,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { name, color, address } = body;
+    const { name, color, address, sortOrder } = body;
     
     // 检查货代商是否存在
     const forwarder = await prisma.forwarder.findUnique({
@@ -63,12 +64,24 @@ export async function PATCH(
         );
       }
     }
+
+    const parsedSortOrder = parseSortOrder(sortOrder);
+
+    if (sortOrder !== undefined && parsedSortOrder === null) {
+      return NextResponse.json(
+        { message: "排序序号必须是数字" },
+        { status: 400 }
+      );
+    }
     
     // 创建更新数据对象
-    const data = {} as Record<string, string | null>;
+    const data = {} as Prisma.ForwarderUpdateInput;
     
     if (name) data.name = name;
     if (color) data.color = color;
+    if (sortOrder !== undefined && parsedSortOrder !== null) {
+      data.sortOrder = parsedSortOrder;
+    }
     
     // 地址可以是空字符串或 null，所以需要特殊处理
     if (address !== undefined) {
@@ -78,7 +91,7 @@ export async function PATCH(
     // 更新货代商
     const updatedForwarder = await prisma.forwarder.update({
       where: { id: (await params).id },
-      data: data as unknown as Prisma.ForwarderUpdateInput,
+      data,
     });
     
     return NextResponse.json(updatedForwarder);

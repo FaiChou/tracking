@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { parseSortOrder } from "@/lib/sort-order";
 
 // 获取货代商列表
 export async function GET() {
   try {
     const forwarders = await prisma.forwarder.findMany({
-      orderBy: {
-        name: "asc",
-      },
+      orderBy: [
+        { sortOrder: "asc" },
+        { name: "asc" },
+      ],
     });
     
     return NextResponse.json(forwarders);
@@ -25,7 +27,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, color, address } = body;
+    const { name, color, address, sortOrder } = body;
     
     if (!name) {
       return NextResponse.json(
@@ -45,21 +47,29 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const parsedSortOrder = parseSortOrder(sortOrder);
+
+    if (parsedSortOrder === null) {
+      return NextResponse.json(
+        { message: "排序序号必须是数字" },
+        { status: 400 }
+      );
+    }
     
     // 创建数据对象
     const data = {
       name,
       color: color || "#000000",
-    } as Record<string, string | null>;
+      sortOrder: parsedSortOrder,
+    } as Prisma.ForwarderCreateInput;
     
     // 如果有地址，添加到数据对象
     if (address !== undefined) {
       data.address = address;
     }
     
-    const forwarder = await prisma.forwarder.create({
-      data: data as unknown as Prisma.ForwarderCreateInput,
-    });
+    const forwarder = await prisma.forwarder.create({ data });
     
     return NextResponse.json(forwarder);
   } catch (error) {

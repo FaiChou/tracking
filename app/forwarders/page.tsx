@@ -38,6 +38,7 @@ type Forwarder = {
   name: string;
   color: string;
   address?: string;
+  sortOrder: number;
 };
 
 // 常用颜色选择
@@ -67,6 +68,7 @@ export default function ForwardersPage() {
   const [name, setName] = useState("");
   const [color, setColor] = useState("#000000");
   const [address, setAddress] = useState("");
+  const [sortOrder, setSortOrder] = useState("0");
   
   // 获取货代商列表
   const fetchForwarders = async () => {
@@ -94,10 +96,12 @@ export default function ForwardersPage() {
       setName(forwarder.name);
       setColor(forwarder.color);
       setAddress(forwarder.address || "");
+      setSortOrder(String(forwarder.sortOrder ?? 0));
     } else {
       setName("");
       setColor("#000000");
       setAddress("");
+      setSortOrder("0");
     }
     setIsDialogOpen(true);
   };
@@ -123,7 +127,7 @@ export default function ForwardersPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ name, color, address }),
+          body: JSON.stringify({ name, color, address, sortOrder }),
         });
       } else {
         // 创建
@@ -132,7 +136,7 @@ export default function ForwardersPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ name, color, address }),
+          body: JSON.stringify({ name, color, address, sortOrder }),
         });
       }
       
@@ -208,6 +212,7 @@ export default function ForwardersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[90px]">排序</TableHead>
                 <TableHead>名称</TableHead>
                 <TableHead>颜色</TableHead>
                 <TableHead>货代地址</TableHead>
@@ -217,6 +222,7 @@ export default function ForwardersPage() {
             <TableBody>
               {forwarders.map((forwarder) => (
                 <TableRow key={forwarder.id}>
+                  <TableCell>{forwarder.sortOrder}</TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center">
                       <div 
@@ -286,6 +292,18 @@ export default function ForwardersPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="输入货代商名称"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sortOrder">排序序号</Label>
+              <Input
+                id="sortOrder"
+                type="number"
+                step="1"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                placeholder="0"
               />
             </div>
             
