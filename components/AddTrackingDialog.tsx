@@ -175,10 +175,10 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
                 <label className="text-sm font-medium">物流公司</label>
                 <Select value={logisticsCompanyId} onValueChange={setLogisticsCompanyId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="选择物流公司（可选）" />
+                    <SelectValue placeholder="自动识别" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">无</SelectItem>
+                    <SelectItem value="none">自动识别</SelectItem>
                     {logisticsCompanies.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
                         <div className="flex items-center">
@@ -192,6 +192,9 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-sm text-muted-foreground">
+                  未选择时按单号自动识别，无法识别则使用 17track
+                </p>
               </div>
               
               <div className="space-y-2">
@@ -236,4 +239,4 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
       </Dialog>
     </>
   );
-} 
+}

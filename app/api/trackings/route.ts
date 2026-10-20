@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { TrackingStatus } from "@prisma/client";
+import { guessLogisticsCompanyId } from "@/lib/guess-logistics-company";
 
 // 获取运单列表
 export async function GET(request: NextRequest) {
@@ -78,12 +79,18 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    const companies = logisticsCompanyId
+      ? []
+      : await prisma.logisticsCompany.findMany({
+          select: { id: true, name: true },
+        });
+
     const tracking = await prisma.tracking.create({
       data: {
         trackingNumber,
         status: status || TrackingStatus.PENDING,
         note,
-        logisticsCompanyId: logisticsCompanyId || null,
+        logisticsCompanyId: logisticsCompanyId || guessLogisticsCompanyId(trackingNumber, companies),
         forwarderId: forwarderId || null,
       },
     });
@@ -96,4 +103,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

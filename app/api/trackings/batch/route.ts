@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { TrackingStatus } from "@prisma/client";
+import { guessLogisticsCompanyId } from "@/lib/guess-logistics-company";
 
 // 定义运单数据类型
 interface TrackingWithNote {
@@ -61,13 +62,19 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 批量创建运单
+    const companies = logisticsCompanyId
+      ? []
+      : await prisma.logisticsCompany.findMany({
+          select: { id: true, name: true },
+        });
+
+    // 批量创建运单，每个运单单独识别物流公司
     const createdTrackings = await prisma.tracking.createMany({
       data: newTrackings.map((tracking: TrackingWithNote) => ({
         trackingNumber: tracking.trackingNumber,
         note: tracking.note,
         status: status || TrackingStatus.PENDING,
-        logisticsCompanyId: logisticsCompanyId || null,
+        logisticsCompanyId: logisticsCompanyId || guessLogisticsCompanyId(tracking.trackingNumber, companies),
         forwarderId: forwarderId || null,
       })),
     });
@@ -83,4 +90,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
