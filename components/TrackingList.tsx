@@ -74,14 +74,6 @@ interface TrackingListProps {
 type SortField = "status" | "createdAt";
 type SortOrder = "asc" | "desc";
 
-const getTrackingQueryUrl = (tracking: Tracking) => {
-  const baseUrl = tracking.logisticsCompany?.name.trim().toLowerCase() === "ems"
-    ? "https://t.17track.net/zh-cn#nums="
-    : tracking.logisticsCompany?.trackingUrl;
-
-  return baseUrl ? `${baseUrl}${tracking.trackingNumber}` : null;
-};
-
 export default function TrackingList({ 
   apiUrl = "/api/trackings?", 
   refreshCounter = 0,
@@ -533,15 +525,14 @@ export default function TrackingList({
     window.open(`https://t.17track.net/zh-cn#nums=${trackingNumbers}`, "_blank");
   };
   
-  // 单条查询：EMS 使用 17TRACK，其他物流公司使用配置的查询网址。
-  const searchTracking = (tracking: Tracking) => {
-    const queryUrl = getTrackingQueryUrl(tracking);
-    if (!queryUrl) {
+  // 官网查询
+  const searchOfficial = (tracking: Tracking) => {
+    if (!tracking.logisticsCompany?.trackingUrl) {
       toast.error("未设置物流公司或查询网址");
       return;
     }
     
-    window.open(queryUrl, "_blank");
+    window.open(`${tracking.logisticsCompany.trackingUrl}${tracking.trackingNumber}`, "_blank");
   };
   
   // 获取状态颜色
@@ -788,9 +779,9 @@ export default function TrackingList({
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => searchTracking(tracking)}
-                      disabled={!getTrackingQueryUrl(tracking)}
-                      title="物流查询"
+                      onClick={() => searchOfficial(tracking)}
+                      disabled={!tracking.logisticsCompany?.trackingUrl}
+                      title="官网查询"
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
@@ -865,4 +856,4 @@ export default function TrackingList({
       </AlertDialog>
     </div>
   );
-}
+} 
