@@ -118,3 +118,21 @@ model SyncRun {
   @@index([startedAt])
   @@index([status])
 }
+
+enum TrackingStatusChangeSource {
+  SCHEDULED_SCRAPE
+  MANUAL_SCRAPE
+  MANUAL_EDIT
+}
+
+// Keep snapshots independent of Tracking so deleting a parcel does not erase its audit entry.
+model TrackingStatusLog {
+  id             Int                        @id @default(autoincrement())
+  trackingId     String
+  trackingNumber String
+  fromStatus     TrackingStatus
+  toStatus       TrackingStatus
+  source         TrackingStatusChangeSource
+  syncRunId      String?
+  createdAt      DateTime                   @default(now())
+}

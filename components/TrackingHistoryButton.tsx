@@ -21,28 +21,104 @@ type TrackingHistory = {
   lastSyncError: string | null;
 };
 
-const STAGE_LABELS: Record<string, string> = {
-  pending: "待处理",
-  registered: "已登记",
-  accepted: "已揽收",
-  pre_transit: "待揽收",
-  info_received: "已收到物流信息",
-  information_received: "已收到物流信息",
-  picked_up: "已揽收",
-  transit: "运输中",
-  in_transit: "运输中",
-  customs: "清关中",
-  out_for_delivery: "派送中",
-  available_for_pickup: "待取件",
-  ready_for_pickup: "待取件",
-  delivered: "已签收",
-  exception: "异常",
-  failed_attempt: "投递未成功",
-  returned: "已退回",
-  return_to_sender: "退回寄件人",
-  cancelled: "已取消",
-  unknown: "未知状态",
+const STAGE_STYLES: Record<string, { label: string; badge: string; dot: string }> = {
+  pending: {
+    label: "待处理",
+    badge: "bg-slate-100 text-slate-700 ring-slate-500/20 dark:bg-slate-400/10 dark:text-slate-300 dark:ring-slate-400/30",
+    dot: "bg-slate-500 dark:bg-slate-400",
+  },
+  registered: {
+    label: "已登记",
+    badge: "bg-indigo-50 text-indigo-700 ring-indigo-500/20 dark:bg-indigo-400/10 dark:text-indigo-300 dark:ring-indigo-400/30",
+    dot: "bg-indigo-500 dark:bg-indigo-400",
+  },
+  accepted: {
+    label: "已揽收",
+    badge: "bg-teal-50 text-teal-700 ring-teal-500/20 dark:bg-teal-400/10 dark:text-teal-300 dark:ring-teal-400/30",
+    dot: "bg-teal-500 dark:bg-teal-400",
+  },
+  pre_transit: {
+    label: "待揽收",
+    badge: "bg-lime-50 text-lime-800 ring-lime-500/20 dark:bg-lime-400/10 dark:text-lime-300 dark:ring-lime-400/30",
+    dot: "bg-lime-500 dark:bg-lime-400",
+  },
+  info_received: {
+    label: "已收到物流信息",
+    badge: "bg-sky-50 text-sky-700 ring-sky-500/20 dark:bg-sky-400/10 dark:text-sky-300 dark:ring-sky-400/30",
+    dot: "bg-sky-500 dark:bg-sky-400",
+  },
+  in_transit: {
+    label: "运输中",
+    badge: "bg-blue-50 text-blue-700 ring-blue-500/20 dark:bg-blue-400/10 dark:text-blue-300 dark:ring-blue-400/30",
+    dot: "bg-blue-500 dark:bg-blue-400",
+  },
+  customs: {
+    label: "清关中",
+    badge: "bg-purple-50 text-purple-700 ring-purple-500/20 dark:bg-purple-400/10 dark:text-purple-300 dark:ring-purple-400/30",
+    dot: "bg-purple-500 dark:bg-purple-400",
+  },
+  out_for_delivery: {
+    label: "派送中",
+    badge: "bg-orange-50 text-orange-700 ring-orange-500/20 dark:bg-orange-400/10 dark:text-orange-300 dark:ring-orange-400/30",
+    dot: "bg-orange-500 dark:bg-orange-400",
+  },
+  ready_for_pickup: {
+    label: "待取件",
+    badge: "bg-amber-50 text-amber-800 ring-amber-500/20 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/30",
+    dot: "bg-amber-500 dark:bg-amber-400",
+  },
+  delivered: {
+    label: "已签收",
+    badge: "bg-emerald-50 text-emerald-700 ring-emerald-500/20 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/30",
+    dot: "bg-emerald-500 dark:bg-emerald-400",
+  },
+  exception: {
+    label: "异常",
+    badge: "bg-red-50 text-red-700 ring-red-500/20 dark:bg-red-400/10 dark:text-red-300 dark:ring-red-400/30",
+    dot: "bg-red-500 dark:bg-red-400",
+  },
+  failed_attempt: {
+    label: "投递未成功",
+    badge: "bg-rose-50 text-rose-700 ring-rose-500/20 dark:bg-rose-400/10 dark:text-rose-300 dark:ring-rose-400/30",
+    dot: "bg-rose-500 dark:bg-rose-400",
+  },
+  returned: {
+    label: "已退回",
+    badge: "bg-pink-50 text-pink-700 ring-pink-500/20 dark:bg-pink-400/10 dark:text-pink-300 dark:ring-pink-400/30",
+    dot: "bg-pink-500 dark:bg-pink-400",
+  },
+  return_to_sender: {
+    label: "退回寄件人",
+    badge: "bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-500/20 dark:bg-fuchsia-400/10 dark:text-fuchsia-300 dark:ring-fuchsia-400/30",
+    dot: "bg-fuchsia-500 dark:bg-fuchsia-400",
+  },
+  cancelled: {
+    label: "已取消",
+    badge: "bg-stone-100 text-stone-700 ring-stone-500/20 dark:bg-stone-400/10 dark:text-stone-300 dark:ring-stone-400/30",
+    dot: "bg-stone-500 dark:bg-stone-400",
+  },
+  unknown: {
+    label: "未知状态",
+    badge: "bg-zinc-100 text-zinc-700 ring-zinc-500/20 dark:bg-zinc-400/10 dark:text-zinc-300 dark:ring-zinc-400/30",
+    dot: "bg-zinc-500 dark:bg-zinc-400",
+  },
 };
+
+// Equivalent carrier stage names share the same label and color.
+const STAGE_ALIASES: Record<string, string> = {
+  information_received: "info_received",
+  picked_up: "accepted",
+  transit: "in_transit",
+  available_for_pickup: "ready_for_pickup",
+};
+
+function stageStyle(stage: string | null) {
+  const name = stage?.trim().toLowerCase() || "unknown";
+  const key = Object.hasOwn(STAGE_ALIASES, name) ? STAGE_ALIASES[name] : name;
+  return Object.hasOwn(STAGE_STYLES, key)
+    ? STAGE_STYLES[key]
+    : { ...STAGE_STYLES.unknown, label: stage?.trim() || STAGE_STYLES.unknown.label };
+}
 
 function formatTime(value: string | null) {
   if (!value) return "时间未知";
@@ -237,17 +313,18 @@ export default function TrackingHistoryButton({
                 </p>
               ) : (
                 <ol className="space-y-5">
-                  {history.events.map((event, index) => (
+                  {history.events.map((event) => {
+                    const style = stageStyle(event.stage);
+                    return (
                     <li key={event.id} className="relative border-l border-border pl-4">
-                      <span aria-hidden="true" className={`absolute -left-[4.5px] top-1 h-2 w-2 rounded-full ${index === 0 ? "bg-primary" : "bg-muted-foreground/50"}`} />
+                      <span aria-hidden="true" className={`absolute -left-[4.5px] top-1 h-2 w-2 rounded-full ${style.dot}`} />
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <time dateTime={event.occurredAt ?? undefined} className="text-xs text-muted-foreground">
                           {event.occurredAt ? formatTime(event.occurredAt) : event.timeText || "时间未知"}
                         </time>
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                          {event.stage ? STAGE_LABELS[event.stage.toLowerCase()] || event.stage : "未知状态"}
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${style.badge}`}>
+                          {style.label}
                         </span>
-                        {index === 0 && <span className="text-xs font-medium text-primary">最新</span>}
                       </div>
                       <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed">{event.description}</p>
                       {event.location && (
@@ -257,7 +334,8 @@ export default function TrackingHistoryButton({
                         </p>
                       )}
                     </li>
-                  ))}
+                    );
+                  })}
                 </ol>
               )}
             </>

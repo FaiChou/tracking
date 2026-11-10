@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { Prisma, PrismaClient, TrackingStatus, type SyncRun } from "@prisma/client";
+import { Prisma, PrismaClient, TrackingStatus, TrackingStatusChangeSource, type SyncRun } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { DEFAULT_SCRAPER_URL } from "@/lib/scraper-url";
 import { fetchParcel, ScraperHttpError, type ScraperResult } from "@/lib/scraper";
 import { DEFAULT_DAILY_SYNC_TIME, getDueRunDate, runDateStart } from "@/lib/tracking-schedule";
+import { recordTrackingStatusChange } from "@/lib/tracking-status-log";
 
 const JOB_ID = "daily-parcel-sync";
 const LEASE_MS = 5 * 60_000;
@@ -316,11 +317,18 @@ async function executeRun(context: RunContext): Promise<SyncRun> {
       const answer = result;
       await db.$transaction(async tx => {
         await fence(tx, context);
+        const nextStatus = nextTrackingStatus(tracking.status, answer);
         const updated = await tx.tracking.updateMany({ where: unchangedTracking, data: {
-          status: nextTrackingStatus(tracking.status, answer), lastSyncAttemptAt: attemptedAt,
+          status: nextStatus, lastSyncAttemptAt: attemptedAt,
           lastSyncedAt: now(), lastSyncError: null,
         } });
         if (updated.count === 1) {
+          await recordTrackingStatusChange(tx, {
+            trackingId: tracking.id, trackingNumber: tracking.trackingNumber,
+            fromStatus: tracking.status, toStatus: nextStatus,
+            source: run.trigger === "scheduled" ? TrackingStatusChangeSource.SCHEDULED_SCRAPE : TrackingStatusChangeSource.MANUAL_SCRAPE,
+            syncRunId: run.id, createdAt: now(),
+          });
           for (const event of answer.events) {
             await tx.trackingEvent.upsert({
               where: { trackingId_eventKey: { trackingId: tracking.id, eventKey: event.eventKey } },

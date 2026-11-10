@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { InvalidTrackingPatchError, updateTracking } from "@/lib/update-tracking";
 
 // 获取单个运单
 export async function GET(
@@ -27,14 +28,14 @@ export async function GET(
         },
       },
     });
-    
+
     if (!tracking) {
       return NextResponse.json(
         { message: "运单不存在" },
         { status: 404 }
       );
     }
-    
+
     return NextResponse.json(tracking);
   } catch (error) {
     console.error("Failed to fetch tracking:", error);
@@ -52,51 +53,20 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { status, logisticsCompanyId, forwarderId, note, isUrgent } = body;
-    
-    // 检查运单是否存在
-    const tracking = await prisma.tracking.findUnique({
-      where: { id: (await params).id },
-    });
-    
-    if (!tracking) {
+    const updatedTracking = await updateTracking((await params).id, body);
+
+    if (!updatedTracking) {
       return NextResponse.json(
         { message: "运单不存在" },
         { status: 404 }
       );
     }
-    
-    // 更新运单
-    const updatedTracking = await prisma.tracking.update({
-      where: { id: (await params).id },
-      data: {
-        ...(status !== undefined && { status }),
-        ...(logisticsCompanyId !== undefined && { logisticsCompanyId }),
-        ...(forwarderId !== undefined && { forwarderId }),
-        ...(note !== undefined && { note }),
-        ...(isUrgent !== undefined && { isUrgent }),
-      },
-      include: {
-        logisticsCompany: {
-          select: {
-            id: true,
-            name: true,
-            color: true,
-            trackingUrl: true,
-          },
-        },
-        forwarder: {
-          select: {
-            id: true,
-            name: true,
-            color: true,
-          },
-        },
-      },
-    });
-    
+
     return NextResponse.json(updatedTracking);
   } catch (error) {
+    if (error instanceof InvalidTrackingPatchError || error instanceof SyntaxError) {
+      return NextResponse.json({ message: error.message }, { status: 400 });
+    }
     console.error("Failed to update tracking:", error);
     return NextResponse.json(
       { message: "更新运单失败" },
@@ -115,19 +85,19 @@ export async function DELETE(
     const tracking = await prisma.tracking.findUnique({
       where: { id: (await params).id },
     });
-    
+
     if (!tracking) {
       return NextResponse.json(
         { message: "运单不存在" },
         { status: 404 }
       );
     }
-    
+
     // 删除运单
     await prisma.tracking.delete({
       where: { id: (await params).id },
     });
-    
+
     return NextResponse.json({ message: "运单已删除" });
   } catch (error) {
     console.error("Failed to delete tracking:", error);
@@ -136,4 +106,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}

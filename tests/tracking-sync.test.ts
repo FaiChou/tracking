@@ -26,6 +26,7 @@ before(() => {
   });
 });
 beforeEach(async () => {
+  await db.trackingStatusLog.deleteMany();
   await db.tracking.deleteMany();
   await db.syncJob.deleteMany();
   await db.syncRun.deleteMany();
@@ -61,6 +62,12 @@ test("daily sync excludes archived/final/exception rows, runs serially and updat
   assert.deepEqual(requested.sort(), ["moving", "pending"]);
   assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "pending" } })).status, "DELIVERED");
   assert.equal(await db.trackingEvent.count(), 2);
+  const changes = await db.trackingStatusLog.findMany({ orderBy: { trackingId: "asc" } });
+  const run = await db.syncRun.findFirstOrThrow();
+  assert.deepEqual(changes.map(change => [change.trackingNumber, change.fromStatus, change.toStatus, change.source, change.syncRunId]), [
+    ["moving", "TRANSIT", "DELIVERED", "SCHEDULED_SCRAPE", run.id],
+    ["pending", "PENDING", "DELIVERED", "SCHEDULED_SCRAPE", run.id],
+  ]);
   assert.equal((await runDailyTrackingSync({ db, now, wait: noWait })).acquired, false);
 });
 
@@ -70,9 +77,11 @@ test("successful syncs merge history, deduplicate scans, and failures keep cache
   currentTime = new Date("2026-11-11T05:00:00+08:00");
   await runDailyTrackingSync({ db, now, wait: noWait, fetchTracking: async () => response("accepted") });
   assert.equal(await db.trackingEvent.count(), 1);
+  assert.equal(await db.trackingStatusLog.count(), 1);
   currentTime = new Date("2026-11-12T05:00:00+08:00");
   await runDailyTrackingSync({ db, now, wait: noWait, fetchTracking: async () => response("in_transit", "2026-11-12T00:00:00Z") });
   assert.equal(await db.trackingEvent.count(), 2);
+  assert.equal(await db.trackingStatusLog.count(), 1);
   const beforeFailure = await db.tracking.findUniqueOrThrow({ where: { id: "parcel" } });
   currentTime = new Date("2026-11-13T05:00:00+08:00");
   await runDailyTrackingSync({ db, now, wait: noWait, fetchTracking: async () => { throw new Error("Chromium timeout"); } });
@@ -81,6 +90,7 @@ test("successful syncs merge history, deduplicate scans, and failures keep cache
   assert.equal(afterFailure.lastSyncedAt?.getTime(), beforeFailure.lastSyncedAt?.getTime());
   assert.equal(afterFailure.lastSyncError, "Chromium timeout");
   assert.equal(await db.trackingEvent.count(), 2);
+  assert.equal(await db.trackingStatusLog.count(), 1);
 });
 
 test("parallel workers acquire only one database lease", async () => {
@@ -118,6 +128,7 @@ test("manual archival or status changes while Chromium runs cannot be overwritte
   assert.equal(tracking.status, "EXCEPTION");
   assert.equal(tracking.isArchived, true);
   assert.equal(await db.trackingEvent.count(), 0);
+  assert.equal(await db.trackingStatusLog.count(), 0);
 });
 
 test("expired lease permits restart, rechecks queue eligibility and avoids repeated daily attempts", async () => {
@@ -213,6 +224,18 @@ test("manual start returns while fetching, persists live progress and ignores da
   assert.equal(progress.activeRun?.succeeded, 1);
   assert.equal(progress.activeRun?.total, 2);
   assert.equal(progress.activeRun?.currentTrackingNumber, "two");
+  const observer = new PrismaClient({ datasourceUrl: databaseUrl });
+  try {
+    // The queue is still blocked in the second lookup, but the first parcel is already committed.
+    assert.equal((await observer.tracking.findUniqueOrThrow({ where: { id: "one" } })).status, "TRANSIT");
+    assert.equal((await observer.tracking.findUniqueOrThrow({ where: { id: "two" } })).status, "PENDING");
+    assert.equal(await observer.trackingEvent.count(), 1);
+    const log = await observer.trackingStatusLog.findFirstOrThrow();
+    assert.deepEqual([log.trackingNumber, log.fromStatus, log.toStatus, log.source, log.syncRunId],
+      ["one", "PENDING", "TRANSIT", "MANUAL_SCRAPE", started.run.id]);
+  } finally {
+    await observer.$disconnect();
+  }
   const duplicate = await startManualTrackingSync({ db, now, wait: noWait });
   assert.equal(duplicate.started, false);
   assert.equal(duplicate.run?.id, started.run.id);
@@ -250,6 +273,7 @@ test("Stop aborts in-flight manual fetch and preserves completed items without c
   assert.equal(finished.failed, 0);
   assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "two" } })).lastSyncAttemptAt, null);
   assert.equal(await db.trackingEvent.count(), 1);
+  assert.equal(await db.trackingStatusLog.count(), 1);
 });
 
 test("cross-process stop markers interrupt long fetches through the database monitor", async () => {
@@ -268,6 +292,7 @@ test("cross-process stop markers interrupt long fetches through the database mon
   assert.equal(finished.status, "STOPPED");
   assert.equal(finished.processed, 0);
   assert.equal(finished.failed, 0);
+  assert.equal(await db.trackingStatusLog.count(), 0);
 });
 
 test("a successful response arriving after Stop cannot persist even when fetch ignores AbortSignal", async () => {
@@ -291,6 +316,7 @@ test("a successful response arriving after Stop cannot persist even when fetch i
   assert.equal(tracking.lastSyncAttemptAt, null);
   assert.equal(tracking.lastSyncError, null);
   assert.equal(await db.trackingEvent.count(), 0);
+  assert.equal(await db.trackingStatusLog.count(), 0);
 });
 
 test("Stop interrupts Retry-After waits and scheduled stops prevent automatic restarts that day", async () => {
@@ -340,6 +366,7 @@ test("expired owners become interrupted and late responses cannot overwrite a ne
   assert.equal(afterLateResponse.activeRun?.id, fresh.run.id);
   assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "one" } })).status, "PENDING");
   assert.equal(await db.trackingEvent.count(), 0);
+  assert.equal(await db.trackingStatusLog.count(), 0);
   assert.equal((await requestTrackingSyncStop(old.run.id, { db, now }))?.status, "INTERRUPTED");
   assert.equal((await getTrackingSyncStatus({ db, now })).activeRun?.status, "RUNNING");
   await requestTrackingSyncStop(fresh.run.id, { db, now });
@@ -381,5 +408,24 @@ test("simultaneous starts from independent database clients create only one acti
     const active = await db.syncRun.findMany({ where: { status: { in: ["RUNNING", "STOPPING"] } } });
     for (const run of active) await waitForFinished(run.id);
     await secondDb.$disconnect();
+  }
+});
+
+test("a history write failure rolls back that parcel's status, log and success counter together", async () => {
+  await db.tracking.create({ data: { id: "one", trackingNumber: "one" } });
+  await db.$executeRawUnsafe("CREATE TRIGGER reject_tracking_event BEFORE INSERT ON TrackingEvent BEGIN SELECT RAISE(ABORT, 'test event rejection'); END");
+  try {
+    await runDailyTrackingSync({ db, now, wait: noWait, fetchTracking: async () => response("delivered") });
+    const tracking = await db.tracking.findUniqueOrThrow({ where: { id: "one" } });
+    assert.equal(tracking.status, "PENDING");
+    assert.equal(tracking.lastSyncedAt, null);
+    assert.equal(await db.trackingStatusLog.count(), 0);
+    assert.equal(await db.trackingEvent.count(), 0);
+    const run = await db.syncRun.findFirstOrThrow();
+    assert.equal(run.status, "FAILED");
+    assert.equal(run.processed, 0);
+    assert.equal(run.succeeded, 0);
+  } finally {
+    await db.$executeRawUnsafe("DROP TRIGGER reject_tracking_event");
   }
 });

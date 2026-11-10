@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Play, Square } from "lucide-react";
 import { toast } from "sonner";
 import ScraperSettings from "@/components/ScraperSettings";
+import TrackingStatusChanges from "@/components/TrackingStatusChanges";
 import { Button } from "@/components/ui/button";
 
 type RunStatus = "RUNNING" | "STOPPING" | "COMPLETED" | "STOPPED" | "FAILED" | "INTERRUPTED";
@@ -285,6 +286,7 @@ export default function ScraperPage() {
           )}
         </div>
       </section>
+      <TrackingStatusChanges refreshKey={`${activeRun?.id ?? ""}:${activeRun?.processed ?? ""}:${status?.lastRun?.id ?? ""}`} />
     </div>
   );
 }
