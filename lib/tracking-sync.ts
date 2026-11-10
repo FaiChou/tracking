@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { Prisma, PrismaClient, TrackingStatus, TrackingStatusChangeSource, type SyncRun } from "@prisma/client";
+import { Prisma, PrismaClient, TrackingStatus, TrackingStatusChangeSource, type SyncRun, type SyncRunItemOutcome, type Tracking } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { DEFAULT_SCRAPER_URL } from "@/lib/scraper-url";
 import { fetchParcel, ScraperHttpError, type ScraperResult } from "@/lib/scraper";
 import { DEFAULT_DAILY_SYNC_TIME, getDueRunDate, runDateStart } from "@/lib/tracking-schedule";
 import { recordTrackingStatusChange } from "@/lib/tracking-status-log";
+import { retryUnavailableReason, RetryTrackingError, selectRetryCandidates } from "@/lib/sync-run-items";
+
+export { RetryTrackingError } from "@/lib/sync-run-items";
 
 const JOB_ID = "daily-parcel-sync";
 const LEASE_MS = 5 * 60_000;
@@ -21,13 +24,14 @@ export type SyncOptions = {
 };
 
 type Dependencies = Required<SyncOptions>;
+type RunCandidate = { id: string; trackingNumber: string };
 type RunContext = Dependencies & {
   run: SyncRun;
   runDate: string | null;
   startedAfter: Date | null;
   scraperUrl: string;
   lockToken: string;
-  candidates: { id: string }[];
+  candidates: RunCandidate[];
 };
 
 export type SyncSummary = { acquired: boolean; succeeded: number; failed: number; skipped: number };
@@ -121,7 +125,8 @@ export async function requestTrackingSyncStop(runId: string, options: SyncOption
   return run;
 }
 
-async function claimRun(trigger: "manual" | "scheduled", options: SyncOptions): Promise<{
+async function claimRun(trigger: "manual" | "scheduled" | "retry", options: SyncOptions,
+  retry?: { sourceRunId: string; trackingId?: string }): Promise<{
   context: RunContext | null; reason?: string;
 }> {
   const deps = dependencies(options);
@@ -149,15 +154,22 @@ async function claimRun(trigger: "manual" | "scheduled", options: SyncOptions): 
       data: { lockToken, activeRunId: runId, lockedUntil: new Date(now().getTime() + LEASE_MS) },
     });
     if (claim.count !== 1) return null;
-    const candidates = await tx.tracking.findMany({
-      where: {
-        isArchived: false, status: { in: eligibleStatuses },
-        ...(startedAfter ? { OR: [{ lastSyncAttemptAt: null }, { lastSyncAttemptAt: { lt: startedAfter } }] } : {}),
-      },
-      select: { id: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    });
+    const retrySource = retry ? await tx.syncRun.findUnique({ where: { id: retry.sourceRunId } }) : null;
+    if (retry && !retrySource) throw new RetryTrackingError(404, "来源抓取任务不存在");
+    const candidates = retry
+      ? await selectRetryCandidates(retry.sourceRunId, retry.trackingId, { db: tx, now })
+      : await tx.tracking.findMany({
+        where: {
+          isArchived: false, status: { in: eligibleStatuses },
+          ...(startedAfter ? { OR: [{ lastSyncAttemptAt: null }, { lastSyncAttemptAt: { lt: startedAfter } }] } : {}),
+        },
+        select: { id: true, trackingNumber: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      });
     const run = await tx.syncRun.create({
-      data: { id: runId, trigger, status: "RUNNING", total: candidates.length, startedAt: now() },
+      data: {
+        id: runId, trigger, status: "RUNNING", total: candidates.length, startedAt: now(), hasDetails: true,
+        retryOfRunId: retrySource ? retrySource.retryOfRunId ?? retrySource.id : null,
+      },
     });
     return { run, candidates };
   }, { timeout: 30_000 });
@@ -182,12 +194,37 @@ async function fence(tx: Prisma.TransactionClient, context: RunContext, allowSto
   return run;
 }
 
-async function recordSkipped(context: RunContext) {
+function skipReason(tracking: Tracking | null, context: RunContext, duringRequest = false): string | null {
+  if (!tracking) return "运单已删除";
+  if (tracking.isArchived) return "运单已归档";
+  if (tracking.status === "DELIVERED") return "运单已签收";
+  if (tracking.status === "EXCEPTION") return "运单处于异常状态";
+  if (context.run.trigger === "retry") {
+    const unavailable = retryUnavailableReason(tracking);
+    if (unavailable) return unavailable;
+  }
+  if (context.startedAfter && tracking.lastSyncAttemptAt && tracking.lastSyncAttemptAt >= context.startedAfter) {
+    return "当日已查询";
+  }
+  return duringRequest ? "查询期间运单被修改" : null;
+}
+
+async function recordProcessed(tx: Prisma.TransactionClient, context: RunContext, candidate: RunCandidate,
+  outcome: SyncRunItemOutcome, reason: string | null = null) {
+  await tx.syncRunItem.create({ data: {
+    runId: context.run.id, trackingId: candidate.id, trackingNumber: candidate.trackingNumber,
+    outcome, reason, createdAt: context.now(),
+  } });
+  const counter = { SUCCEEDED: "succeeded", FAILED: "failed", SKIPPED: "skipped" } as const;
+  await tx.syncRun.update({ where: { id: context.run.id }, data: {
+    processed: { increment: 1 }, [counter[outcome]]: { increment: 1 }, currentTrackingNumber: null,
+  } });
+}
+
+async function recordSkipped(context: RunContext, candidate: RunCandidate, reason: string) {
   await context.db.$transaction(async tx => {
     await fence(tx, context);
-    await tx.syncRun.update({ where: { id: context.run.id }, data: {
-      processed: { increment: 1 }, skipped: { increment: 1 }, currentTrackingNumber: null,
-    } });
+    await recordProcessed(tx, context, candidate, "SKIPPED", reason);
   });
 }
 
@@ -254,15 +291,16 @@ async function executeRun(context: RunContext): Promise<SyncRun> {
   try {
     let madeRequest = false;
     for (let index = 0; index < candidates.length; index++) {
+      const candidate = candidates[index];
       await checkControl();
       if (madeRequest) await wait(REQUEST_INTERVAL_MS, abort.signal);
       await checkControl();
       const tracking = await db.tracking.findUnique({
-        where: { id: candidates[index].id }, include: { logisticsCompany: { select: { name: true } } },
+        where: { id: candidate.id }, include: { logisticsCompany: { select: { name: true } } },
       });
-      if (!tracking || tracking.isArchived || !eligibleStatuses.includes(tracking.status)
-        || (context.startedAfter && tracking.lastSyncAttemptAt && tracking.lastSyncAttemptAt >= context.startedAfter)) {
-        await recordSkipped(context);
+      const ineligible = skipReason(tracking, context);
+      if (!tracking || ineligible) {
+        await recordSkipped(context, candidate, ineligible ?? "运单已删除");
         continue;
       }
       const attemptedAt = now();
@@ -299,11 +337,9 @@ async function executeRun(context: RunContext): Promise<SyncRun> {
           const updated = await tx.tracking.updateMany({ where: unchangedTracking, data: {
             lastSyncAttemptAt: attemptedAt, lastSyncError: errorMessage(lookupError),
           } });
-          await tx.syncRun.update({ where: { id: run.id }, data: {
-            processed: { increment: 1 },
-            ...(updated.count === 1 ? { failed: { increment: 1 } } : { skipped: { increment: 1 } }),
-            currentTrackingNumber: null,
-          } });
+          const reason = updated.count === 1 ? errorMessage(lookupError)
+            : skipReason(await tx.tracking.findUnique({ where: { id: candidate.id } }), context, true);
+          await recordProcessed(tx, context, candidate, updated.count === 1 ? "FAILED" : "SKIPPED", reason);
         });
         if (lookupError instanceof ScraperHttpError && lookupError.statusCode === 429 && index < candidates.length - 1) {
           await wait(Math.max(60_000, lookupError.retryAfterMs), abort.signal);
@@ -311,7 +347,8 @@ async function executeRun(context: RunContext): Promise<SyncRun> {
         continue;
       }
       if (!result) {
-        await recordSkipped(context);
+        const changed = await db.tracking.findUnique({ where: { id: candidate.id } });
+        await recordSkipped(context, candidate, skipReason(changed, context, true)!);
         continue;
       }
       const answer = result;
@@ -336,11 +373,9 @@ async function executeRun(context: RunContext): Promise<SyncRun> {
             });
           }
         }
-        await tx.syncRun.update({ where: { id: run.id }, data: {
-          processed: { increment: 1 },
-          ...(updated.count === 1 ? { succeeded: { increment: 1 } } : { skipped: { increment: 1 } }),
-          currentTrackingNumber: null,
-        } });
+        const reason = updated.count === 1 ? null
+          : skipReason(await tx.tracking.findUnique({ where: { id: candidate.id } }), context, true);
+        await recordProcessed(tx, context, candidate, updated.count === 1 ? "SUCCEEDED" : "SKIPPED", reason);
       }, { timeout: 30_000 });
     }
   } catch (error) {
@@ -371,4 +406,16 @@ export async function runDailyTrackingSync(options: SyncOptions = {}): Promise<S
   if (!claimed.context) return { acquired: false, succeeded: 0, failed: 0, skipped: 0 };
   const run = await executeRun(claimed.context);
   return { acquired: true, succeeded: run.succeeded, failed: run.failed, skipped: run.skipped };
+}
+
+export async function startRetryTrackingSync(sourceRunId: string, trackingId?: string, options: SyncOptions = {}): Promise<{
+  started: boolean; run: SyncRun | null; reason?: string;
+}> {
+  const claimed = await claimRun("retry", options, { sourceRunId, trackingId });
+  if (!claimed.context) {
+    const status = await getTrackingSyncStatus(options);
+    return { started: false, run: status.activeRun, reason: claimed.reason };
+  }
+  void executeRun(claimed.context).catch(error => { console.error("[tracking-sync] Retry run failed", error); });
+  return { started: true, run: claimed.context.run };
 }

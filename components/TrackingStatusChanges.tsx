@@ -125,7 +125,6 @@ export default function TrackingStatusChanges({ refreshKey }: { refreshKey?: str
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <h2 id="tracking-status-changes-title" className="text-lg font-semibold">最近状态变更</h2>
-          <p className="text-sm text-muted-foreground">仅记录实际状态变化，全局保留最近 {LOG_LIMIT} 条，最新记录在前。</p>
         </div>
         <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => setRefreshCount(value => value + 1)}>
           {loading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <RefreshCw aria-hidden="true" className="h-4 w-4" />}

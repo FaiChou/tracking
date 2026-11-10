@@ -114,9 +114,33 @@ model SyncRun {
   stopRequested         Boolean  @default(false)
   error                 String?
   updatedAt             DateTime @updatedAt
+  hasDetails            Boolean  @default(false)
+  retryOfRunId          String?
+  items                 SyncRunItem[]
 
   @@index([startedAt])
   @@index([status])
+}
+
+enum SyncRunItemOutcome {
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+// The tracking identity is a snapshot, so deleted parcels remain visible in run details.
+model SyncRunItem {
+  id             Int                @id @default(autoincrement())
+  runId          String
+  trackingId     String
+  trackingNumber String
+  outcome        SyncRunItemOutcome
+  reason         String?
+  createdAt      DateTime           @default(now())
+  run            SyncRun           @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, trackingId])
+  @@index([runId, outcome])
 }
 
 enum TrackingStatusChangeSource {

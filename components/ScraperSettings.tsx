@@ -18,6 +18,7 @@ function isSettings(value: unknown): value is Settings {
 export default function ScraperSettings({ onSaved }: { onSaved?: () => void }) {
   const [scraperUrl, setScraperUrl] = useState("http://127.0.0.1:18080");
   const [dailySyncTime, setDailySyncTime] = useState("05:00");
+  const [savedSettings, setSavedSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -39,6 +40,7 @@ export default function ScraperSettings({ onSaved }: { onSaved?: () => void }) {
         if (!controller.signal.aborted) {
           setScraperUrl(data.scraperUrl);
           setDailySyncTime(data.dailySyncTime);
+          setSavedSettings(data);
           setLoaded(true);
         }
       } catch (cause) {
@@ -51,9 +53,12 @@ export default function ScraperSettings({ onSaved }: { onSaved?: () => void }) {
     return () => controller.abort();
   }, [retry]);
 
+  const hasChanges = savedSettings !== null
+    && (scraperUrl.trim() !== savedSettings.scraperUrl || dailySyncTime !== savedSettings.dailySyncTime);
+
   async function saveSettings(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!loaded || loading || saving) return;
+    if (!loaded || loading || saving || !hasChanges) return;
     setSaving(true);
     setError("");
     try {
@@ -67,6 +72,7 @@ export default function ScraperSettings({ onSaved }: { onSaved?: () => void }) {
       if (!isSettings(data)) throw new Error("设置数据格式错误，请重新读取确认");
       setScraperUrl(data.scraperUrl);
       setDailySyncTime(data.dailySyncTime);
+      setSavedSettings(data);
       toast.success("设置已保存");
       onSaved?.();
     } catch (cause) {
@@ -80,40 +86,34 @@ export default function ScraperSettings({ onSaved }: { onSaved?: () => void }) {
     <section aria-labelledby="scraper-settings-title" className="rounded-lg border bg-card p-5 sm:p-6">
       <h2 id="scraper-settings-title" className="text-lg font-semibold">查询设置</h2>
       <form onSubmit={saveSettings} className="mt-5 space-y-4" aria-busy={loading || saving}>
-        <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_180px]">
+        <div className="grid max-w-3xl items-end gap-4 sm:grid-cols-[minmax(0,1fr)_150px_auto]">
           <div className="space-y-2">
             <Label htmlFor="scraper-url">Scraper 服务地址</Label>
             <Input
               id="scraper-url" value={scraperUrl}
               onChange={(event) => setScraperUrl(event.target.value)}
               placeholder="127.0.0.1:18080" autoComplete="off" spellCheck={false} required
-              disabled={loading || saving || !loaded} aria-describedby="scraper-url-help"
+              disabled={loading || saving || !loaded}
             />
-            <p id="scraper-url-help" className="text-xs leading-relaxed text-muted-foreground">
-              填写管理系统能访问的地址；127.0.0.1 指运行管理系统的主机。
-            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="daily-sync-time">每日抓取时间</Label>
             <Input
               id="daily-sync-time" type="time" step={60} value={dailySyncTime}
               onChange={(event) => setDailySyncTime(event.target.value)} required
-              disabled={loading || saving || !loaded} aria-describedby="daily-sync-time-help"
+              disabled={loading || saving || !loaded}
             />
-            <p id="daily-sync-time-help" className="text-xs text-muted-foreground">北京时间（UTC+8）</p>
           </div>
-        </div>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        <div className="flex justify-end">
           {!loading && !loaded ? (
             <Button type="button" variant="outline" onClick={() => setRetry(value => value + 1)}>重试读取设置</Button>
           ) : (
-            <Button type="submit" disabled={loading || saving || !loaded || !scraperUrl.trim() || !dailySyncTime}>
+            <Button type="submit" disabled={loading || saving || !loaded || !hasChanges || !scraperUrl.trim() || !dailySyncTime}>
               {(loading || saving) && <Loader2 className="h-4 w-4 animate-spin" />}
               {loading ? "读取中…" : saving ? "保存中…" : "保存设置"}
             </Button>
           )}
         </div>
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       </form>
     </section>
   );

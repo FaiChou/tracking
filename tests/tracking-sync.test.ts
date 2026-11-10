@@ -230,6 +230,7 @@ test("manual start returns while fetching, persists live progress and ignores da
     assert.equal((await observer.tracking.findUniqueOrThrow({ where: { id: "one" } })).status, "TRANSIT");
     assert.equal((await observer.tracking.findUniqueOrThrow({ where: { id: "two" } })).status, "PENDING");
     assert.equal(await observer.trackingEvent.count(), 1);
+    assert.equal(await observer.syncRunItem.count({ where: { runId: started.run.id, outcome: "SUCCEEDED" } }), 1);
     const log = await observer.trackingStatusLog.findFirstOrThrow();
     assert.deepEqual([log.trackingNumber, log.fromStatus, log.toStatus, log.source, log.syncRunId],
       ["one", "PENDING", "TRANSIT", "MANUAL_SCRAPE", started.run.id]);
@@ -274,6 +275,7 @@ test("Stop aborts in-flight manual fetch and preserves completed items without c
   assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "two" } })).lastSyncAttemptAt, null);
   assert.equal(await db.trackingEvent.count(), 1);
   assert.equal(await db.trackingStatusLog.count(), 1);
+  assert.equal(await db.syncRunItem.count({ where: { runId: started.run.id } }), 1);
 });
 
 test("cross-process stop markers interrupt long fetches through the database monitor", async () => {
@@ -317,6 +319,7 @@ test("a successful response arriving after Stop cannot persist even when fetch i
   assert.equal(tracking.lastSyncError, null);
   assert.equal(await db.trackingEvent.count(), 0);
   assert.equal(await db.trackingStatusLog.count(), 0);
+  assert.equal(await db.syncRunItem.count({ where: { runId: started.run.id } }), 0);
 });
 
 test("Stop interrupts Retry-After waits and scheduled stops prevent automatic restarts that day", async () => {
@@ -425,6 +428,7 @@ test("a history write failure rolls back that parcel's status, log and success c
     assert.equal(run.status, "FAILED");
     assert.equal(run.processed, 0);
     assert.equal(run.succeeded, 0);
+    assert.equal(await db.syncRunItem.count(), 0);
   } finally {
     await db.$executeRawUnsafe("DROP TRIGGER reject_tracking_event");
   }
