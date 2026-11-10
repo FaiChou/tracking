@@ -30,6 +30,7 @@ type Props = {
   runId: string;
   outcome: Outcome;
   count: number;
+  retryableOnly?: boolean;
   refreshKey: string;
   retryDisabled: boolean;
   retryBusy: boolean;
@@ -65,9 +66,9 @@ function formatTime(value: string) {
 }
 
 export default function RunIssuePopover({
-  runId, outcome, count, refreshKey, retryDisabled, retryBusy, retryDisabledReason, onRetry,
+  runId, outcome, count, retryableOnly = false, refreshKey, retryDisabled, retryBusy, retryDisabledReason, onRetry,
 }: Props) {
-  const label = outcome === "FAILED" ? "失败" : "跳过";
+  const label = retryableOnly ? "待重试" : outcome === "FAILED" ? "失败" : "跳过";
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState<RunItems | null>(null);
   const [loading, setLoading] = useState(false);
@@ -171,6 +172,7 @@ export default function RunIssuePopover({
   }, [open, refreshKey, readRetry, runId, outcome]);
 
   const actionsDisabled = retryDisabled || retryBusy || loading || Boolean(error);
+  const visibleItems = details?.items.filter(item => !retryableOnly || item.canRetry) ?? [];
 
   return (
     <Popover open={open} onOpenChange={value => {
@@ -225,7 +227,10 @@ export default function RunIssuePopover({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h4 id={titleId} className="font-semibold">{label}明细</h4>
-              <p className="mt-1 text-xs text-muted-foreground">任务汇总 {details?.expectedCount ?? count} 条{details ? `，当前名单 ${details.items.length} 条` : ""}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {retryableOnly ? `当前待重试 ${details?.retryableCount ?? count} 条`
+                  : `任务汇总 ${details?.expectedCount ?? count} 条${details ? `，当前名单 ${details.items.length} 条` : ""}`}
+              </p>
             </div>
             <Button type="button" size="sm" variant="ghost" disabled={loading} onClick={() => setReadRetry(value => value + 1)} aria-label="刷新任务明细">
               {loading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <RefreshCw aria-hidden="true" className="h-4 w-4" />}
@@ -252,17 +257,19 @@ export default function RunIssuePopover({
               {!details.recorded && (
                 <p className="mb-4 rounded-md bg-muted p-3 text-xs leading-relaxed">
                   {outcome === "SKIPPED" ? "旧任务未保存跳过名单，无法还原。"
-                    : details.legacyFallback ? "旧任务未保存完整明细，下列仅为目前能确认仍失败的运单，可能少于汇总数量。"
+                    : details.legacyFallback ? (retryableOnly
+                      ? "旧任务未保存完整明细，下列仅为目前能确认仍可重试的运单。"
+                      : "旧任务未保存完整明细，下列仅为目前能确认仍失败的运单，可能少于汇总数量。")
                       : "旧任务未保存完整失败明细，无法还原。"}
                 </p>
               )}
-              {details.items.length === 0 ? (
+              {visibleItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {details.recorded ? `暂无${label}运单` : "暂无可展示的运单明细"}
+                  {retryableOnly ? "当前没有可重试的失败运单" : details.recorded ? `暂无${label}运单` : "暂无可展示的运单明细"}
                 </p>
               ) : (
                 <ul className="space-y-4">
-                  {details.items.map(item => (
+                  {visibleItems.map(item => (
                     <li key={item.id ?? item.trackingId} className="space-y-2 border-b pb-4 last:border-0 last:pb-0">
                       <div className="flex items-start justify-between gap-3">
                         <p className="min-w-0 break-all text-sm font-medium">{item.trackingNumber}</p>

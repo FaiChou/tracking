@@ -10,13 +10,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const state = await getTrackingSyncStatus();
-    const displayedRun = state.activeRun ?? state.lastRun;
-    const [settings, job, retrySourceRun] = await Promise.all([
+    const [settings, job] = await Promise.all([
       getSettings(),
       prisma.syncJob.findUnique({ where: { id: "daily-parcel-sync" }, select: { lastRunDate: true } }),
-      displayedRun?.retryOfRunId
-        ? prisma.syncRun.findUnique({ where: { id: displayedRun.retryOfRunId } })
-        : Promise.resolve(null),
     ]);
     const now = new Date();
     const enabled = schedulerEnabled({
@@ -30,7 +26,6 @@ export async function GET() {
 
     return NextResponse.json({
       ...state,
-      retrySourceRun,
       activeRun: state.activeRun ? {
         ...state.activeRun,
         durationMs: Math.max(0, now.getTime() - state.activeRun.startedAt.getTime()),

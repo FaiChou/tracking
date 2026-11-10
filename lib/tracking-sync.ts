@@ -6,7 +6,7 @@ import { DEFAULT_SCRAPER_URL } from "@/lib/scraper-url";
 import { fetchParcel, ScraperHttpError, type ScraperResult } from "@/lib/scraper";
 import { DEFAULT_DAILY_SYNC_TIME, getDueRunDate, runDateStart } from "@/lib/tracking-schedule";
 import { recordTrackingStatusChange } from "@/lib/tracking-status-log";
-import { retryUnavailableReason, RetryTrackingError, selectRetryCandidates } from "@/lib/sync-run-items";
+import { getSyncRunItems, retryUnavailableReason, RetryTrackingError, selectRetryCandidates } from "@/lib/sync-run-items";
 
 export { RetryTrackingError } from "@/lib/sync-run-items";
 
@@ -95,6 +95,7 @@ async function recoverInterruptedRuns(db: PrismaClient, now: () => Date) {
 
 export async function getTrackingSyncStatus(options: SyncOptions = {}): Promise<{
   activeRun: SyncRun | null; lastRun: SyncRun | null;
+  retrySourceRun: (SyncRun & { retryableCount: number }) | null;
 }> {
   const { db, now } = dependencies(options);
   await recoverInterruptedRuns(db, now);
@@ -102,7 +103,13 @@ export async function getTrackingSyncStatus(options: SyncOptions = {}): Promise<
     db.syncRun.findFirst({ where: { status: { in: ACTIVE_STATUSES } }, orderBy: { startedAt: "desc" } }),
     db.syncRun.findFirst({ where: { status: { notIn: ACTIVE_STATUSES } }, orderBy: [{ startedAt: "desc" }, { id: "desc" }] }),
   ]);
-  return { activeRun, lastRun };
+  const sourceRunId = (activeRun ?? lastRun)?.retryOfRunId;
+  const sourceRun = sourceRunId ? await db.syncRun.findUnique({ where: { id: sourceRunId } }) : null;
+  const sourceItems = sourceRun ? await getSyncRunItems(sourceRun.id, "FAILED", { db, now }) : null;
+  return {
+    activeRun, lastRun,
+    retrySourceRun: sourceRun && sourceItems ? { ...sourceRun, retryableCount: sourceItems.retryableCount } : null,
+  };
 }
 
 export async function requestTrackingSyncStop(runId: string, options: SyncOptions = {}): Promise<SyncRun | null> {

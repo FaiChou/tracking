@@ -105,6 +105,7 @@ test("each processed parcel has exactly one atomic outcome with concrete skip re
   ]);
   assert.ok(skipped?.items.every(item => !item.canRetry));
   assert.equal(skipped?.retryableCount, 0);
+  assert.equal((await getTrackingSyncStatus({ db, now })).retrySourceRun, null);
 });
 
 test("single and all retries are restricted to unresolved eligible failures and leave original history unchanged", async () => {
@@ -143,12 +144,23 @@ test("single and all retries are restricted to unresolved eligible failures and 
   assert.equal(singleFinished.trigger, "retry");
   assert.equal(singleFinished.retryOfRunId, source.id);
   assert.deepEqual(requested, ["number-a"]);
+  const afterSingle = await getTrackingSyncStatus({ db, now });
+  assert.equal(afterSingle.lastRun?.id, single.run.id);
+  assert.equal(afterSingle.retrySourceRun?.id, source.id);
+  assert.equal(afterSingle.retrySourceRun?.retryableCount, 1);
+  assert.equal(afterSingle.retrySourceRun?.failed, 7);
+  currentTime = new Date(currentTime.getTime() + 60_000);
   const all = await startRetryTrackingSync(source.id, undefined, { db, now, wait: noWait, fetchTracking });
   assert.ok(all.run);
   await waitForFinished(all.run.id);
   assert.deepEqual(requested, ["number-a", "number-b"]);
   assert.deepEqual(await db.syncRun.findUniqueOrThrow({ where: { id: source.id } }), source);
   assert.deepEqual(await db.syncRunItem.findMany({ where: { runId: source.id } }), originalItems);
+  const afterAll = await getTrackingSyncStatus({ db, now });
+  assert.equal(afterAll.lastRun?.id, all.run.id);
+  assert.equal(afterAll.retrySourceRun?.id, source.id);
+  assert.equal(afterAll.retrySourceRun?.retryableCount, 0);
+  assert.equal(afterAll.retrySourceRun?.failed, 7);
   assert.equal((await db.syncJob.findUniqueOrThrow({ where: { id: "daily-parcel-sync" } })).lastRunDate, null);
   await assert.rejects(startRetryTrackingSync(source.id, undefined, { db, now }), RetryTrackingError);
   assert.equal(await db.syncRun.count(), 3);
@@ -169,11 +181,18 @@ test("retry eligibility is rechecked after queue waits and descendant retries ke
   assert.equal(finished.skipped, 1);
   const skipped = await getSyncRunItems(finished.id, "SKIPPED", { db, now });
   assert.match(skipped!.items[0].reason!, /已查询成功/);
+  assert.equal((await getTrackingSyncStatus({ db, now })).retrySourceRun?.retryableCount, 1);
+  currentTime = new Date(currentTime.getTime() + 60_000);
   const descendant = await startRetryTrackingSync(finished.id, "a", { db, now, wait: noWait, fetchTracking: async () => answer() });
   assert.ok(descendant.run);
   await waitForFinished(descendant.run.id);
   assert.equal(descendant.run.retryOfRunId, source.id);
   assert.equal((await getSyncRunItems(source.id, "FAILED", { db, now }))?.retryableCount, 0);
+  const status = await getTrackingSyncStatus({ db, now });
+  assert.equal(status.lastRun?.id, descendant.run.id);
+  assert.equal(status.retrySourceRun?.id, source.id);
+  assert.equal(status.retrySourceRun?.retryableCount, 0);
+  assert.equal(status.retrySourceRun?.failed, 2);
 });
 
 test("retry runs share the global lock and repeated Stop preserves completed items without fabricated failures", async () => {
@@ -185,6 +204,10 @@ test("retry runs share the global lock and repeated Stop preserves completed ite
   } });
   assert.ok(first.run);
   await gate;
+  const activeStatus = await getTrackingSyncStatus({ db, now });
+  assert.equal(activeStatus.activeRun?.id, first.run.id);
+  assert.equal(activeStatus.retrySourceRun?.id, source.id);
+  assert.equal(activeStatus.retrySourceRun?.retryableCount, 2);
   assert.equal((await startManualTrackingSync({ db, now })).started, false);
   assert.equal((await runDailyTrackingSync({ db, now })).acquired, false);
   assert.equal((await startRetryTrackingSync(source.id, "a", { db, now })).started, false);
@@ -196,19 +219,24 @@ test("retry runs share the global lock and repeated Stop preserves completed ite
   assert.equal(await db.syncRunItem.count({ where: { runId: stopped.id } }), 0);
   let secondFetching!: () => void;
   const secondGate = new Promise<void>(resolve => { secondFetching = resolve; });
+  currentTime = new Date(currentTime.getTime() + 60_000);
   const second = await startRetryTrackingSync(source.id, undefined, { db, now, wait: noWait, fetchTracking: async (_, tracking, options) => {
     if (tracking.trackingNumber === "number-a") return answer();
     secondFetching(); return abortable(options?.signal);
   } });
   assert.ok(second.run);
   await secondGate;
+  assert.equal((await getTrackingSyncStatus({ db, now })).retrySourceRun?.retryableCount, 1);
   await requestTrackingSyncStop(second.run.id, { db, now });
   const stoppedAgain = await waitForFinished(second.run.id);
   assert.deepEqual([stoppedAgain.processed, stoppedAgain.succeeded, stoppedAgain.failed, stoppedAgain.skipped], [1, 1, 0, 0]);
   assert.equal(await db.syncRunItem.count({ where: { runId: stoppedAgain.id } }), 1);
   const remaining = await getSyncRunItems(source.id, "FAILED", { db, now });
   assert.deepEqual(remaining?.items.filter(item => item.canRetry).map(item => item.trackingId), ["b"]);
-  assert.equal((await getTrackingSyncStatus({ db, now })).activeRun, null);
+  const stoppedStatus = await getTrackingSyncStatus({ db, now });
+  assert.equal(stoppedStatus.activeRun, null);
+  assert.equal(stoppedStatus.lastRun?.id, stoppedAgain.id);
+  assert.equal(stoppedStatus.retrySourceRun?.retryableCount, 1);
 });
 
 test("legacy fallback is explicitly incomplete, uses the original attempt window and cannot authorize unrelated IDs", async () => {
@@ -265,6 +293,7 @@ test("legacy root keeps proven failed retry members without admitting other sour
   ] });
   await db.syncRun.create({ data: {
     trigger: "retry", retryOfRunId: "another-source", status: "COMPLETED", hasDetails: true, failed: 1,
+    startedAt: now(), finishedAt: now(),
     items: { create: { trackingId: "unrelated", trackingNumber: "unrelated", outcome: "FAILED", reason: "unrelated failure" } },
   } });
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -280,8 +309,14 @@ test("legacy root keeps proven failed retry members without admitting other sour
     assert.equal(remaining?.expectedCount, 5);
     assert.deepEqual(remaining?.items.map(item => item.trackingId).sort(), ["a", "b"]);
     assert.equal(remaining?.retryableCount, 2);
+    const status = await getTrackingSyncStatus({ db, now });
+    assert.equal(status.lastRun?.id, retry.run.id);
+    assert.equal(status.retrySourceRun?.id, root.id);
+    assert.equal(status.retrySourceRun?.retryableCount, 2);
+    assert.equal(status.retrySourceRun?.failed, 5);
     await assert.rejects(startRetryTrackingSync(root.id, "unrelated", { db, now }), RetryTrackingError);
   }
+  currentTime = new Date(currentTime.getTime() + 60_000);
   const success = await startRetryTrackingSync(root.id, "a", { db, now, wait: noWait, fetchTracking: async () => answer() });
   assert.ok(success.run);
   await waitForFinished(success.run.id);
@@ -289,4 +324,43 @@ test("legacy root keeps proven failed retry members without admitting other sour
   assert.deepEqual(remaining?.items.map(item => item.trackingId), ["b"]);
   assert.equal(remaining?.recorded, false);
   assert.equal((await db.syncRun.findUniqueOrThrow({ where: { id: root.id } })).failed, 5);
+  const status = await getTrackingSyncStatus({ db, now });
+  assert.equal(status.lastRun?.id, success.run.id);
+  assert.equal(status.retrySourceRun?.id, root.id);
+  assert.equal(status.retrySourceRun?.retryableCount, 1);
+  assert.equal(status.retrySourceRun?.failed, 5);
+});
+
+test("legacy source reports no pending retries after all nine known failures succeed despite a historical total of ten", async () => {
+  const startedAt = new Date("2026-11-10T03:00:00+08:00");
+  const finishedAt = new Date("2026-11-10T04:00:00+08:00");
+  const source = await db.syncRun.create({ data: {
+    id: "legacy-ten", trigger: "scheduled", status: "COMPLETED", total: 10, processed: 10,
+    failed: 10, startedAt, finishedAt,
+  } });
+  await db.tracking.createMany({ data: [
+    ...Array.from({ length: 9 }, (_, index) => ({
+      id: `failed-${index}`, trackingNumber: `failed-${index}`, lastSyncAttemptAt: finishedAt, lastSyncError: "original failure",
+    })),
+    { id: "resolved", trackingNumber: "resolved", lastSyncAttemptAt: finishedAt, lastSyncError: null },
+    { id: "unrelated", trackingNumber: "unrelated", lastSyncAttemptAt: now(), lastSyncError: "unrelated failure" },
+  ] });
+  assert.equal((await getSyncRunItems(source.id, "FAILED", { db, now }))?.retryableCount, 9);
+  const retry = await startRetryTrackingSync(source.id, undefined, { db, now, wait: noWait, fetchTracking: async () => answer() });
+  assert.ok(retry.run);
+  const finished = await waitForFinished(retry.run.id);
+  assert.deepEqual([finished.total, finished.processed, finished.succeeded, finished.failed], [9, 9, 9, 0]);
+  const status = await getTrackingSyncStatus({ db, now });
+  assert.equal(status.lastRun?.id, finished.id);
+  assert.equal(status.retrySourceRun?.id, source.id);
+  assert.equal(status.retrySourceRun?.hasDetails, false);
+  assert.equal(status.retrySourceRun?.retryableCount, 0);
+  assert.equal(status.retrySourceRun?.failed, 10);
+  const details = await getSyncRunItems(source.id, "FAILED", { db, now });
+  assert.equal(details?.expectedCount, 10);
+  assert.equal(details?.retryableCount, 0);
+  assert.deepEqual(details?.items, []);
+  assert.deepEqual(await db.syncRun.findUniqueOrThrow({ where: { id: source.id } }), source);
+  assert.equal(await db.syncRunItem.count({ where: { runId: source.id } }), 0);
+  assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "unrelated" } })).lastSyncError, "unrelated failure");
 });

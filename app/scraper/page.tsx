@@ -30,7 +30,7 @@ type Run = {
 type ScraperStatus = {
   activeRun: Run | null;
   lastRun: Run | null;
-  retrySourceRun: Run | null;
+  retrySourceRun: (Run & { retryableCount: number }) | null;
   schedulerEnabled: boolean;
   timeZone: "Asia/Shanghai";
   nextScheduledAt: string | null;
@@ -72,7 +72,9 @@ function isRun(value: unknown): value is Run {
 function isScraperStatus(value: unknown): value is ScraperStatus {
   return isRecord(value) && (value.activeRun === null || isRun(value.activeRun))
     && (value.lastRun === null || isRun(value.lastRun))
-    && (value.retrySourceRun === null || isRun(value.retrySourceRun))
+    && (value.retrySourceRun === null || (isRun(value.retrySourceRun)
+      && "retryableCount" in value.retrySourceRun && typeof value.retrySourceRun.retryableCount === "number"
+      && Number.isInteger(value.retrySourceRun.retryableCount) && value.retrySourceRun.retryableCount >= 0))
     && typeof value.schedulerEnabled === "boolean" && value.timeZone === "Asia/Shanghai"
     && (value.nextScheduledAt === null || typeof value.nextScheduledAt === "string")
     && typeof value.serverTime === "string";
@@ -237,6 +239,7 @@ export default function ScraperPage() {
 
   const activeRun = status?.activeRun ?? null;
   const displayedRun = activeRun ?? status?.lastRun ?? null;
+  const retrySourceRun = status?.retrySourceRun ?? null;
   const stopping = activeRun?.status === "STOPPING" || activeRun?.stopRequested;
   const actionsDisabled = !status || Boolean(statusError) || action !== null || statusLoading;
   const scheduledRunDue = Boolean(status?.nextScheduledAt
@@ -247,7 +250,7 @@ export default function ScraperPage() {
     retryDisabledReason: statusError ? "任务状态未确认，恢复后可重试。"
       : activeRun ? "当前任务结束后可重试失败运单。"
         : action ? "正在处理请求，请稍候。" : statusLoading ? "正在刷新任务状态…" : undefined,
-    refreshKey: `${activeRun?.id ?? ""}:${activeRun?.processed ?? ""}:${status?.lastRun?.id ?? ""}:${status?.lastRun?.status ?? ""}:${refreshKey}`,
+    refreshKey: `${activeRun?.id ?? ""}:${activeRun?.processed ?? ""}:${status?.lastRun?.id ?? ""}:${status?.lastRun?.status ?? ""}:${retrySourceRun?.retryableCount ?? ""}:${refreshKey}`,
     onRetry: (runId, trackingId) => { void runAction("retry", { runId, trackingId }); },
   };
 
@@ -308,20 +311,20 @@ export default function ScraperPage() {
             </p>
           )}
         </div>
-        {displayedRun?.retryOfRunId && (
+        {displayedRun?.retryOfRunId && (!retrySourceRun || retrySourceRun.retryableCount > 0) && (
           <div className="mt-5 border-t pt-5">
-            {status?.retrySourceRun ? (
+            {retrySourceRun ? (
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-1">
                   <h3 className="font-medium">重试来源任务</h3>
-                  <p className="text-sm text-muted-foreground">{formatDate(status.retrySourceRun.startedAt)}（北京时间） · {TRIGGER_LABELS[status.retrySourceRun.trigger]}</p>
-                  <p className="text-xs text-muted-foreground">原任务失败数保留，可在名单中查看并重试尚未解决的运单。</p>
+                  <p className="text-sm text-muted-foreground">{formatDate(retrySourceRun.startedAt)}（北京时间） · {TRIGGER_LABELS[retrySourceRun.trigger]}</p>
+                  <p className="text-xs text-muted-foreground">仅显示当前仍可重试的失败运单，重试成功后自动移除。</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">原任务失败</p>
+                  <p className="text-sm text-muted-foreground">待重试</p>
                   <RunIssuePopover
-                    key={`${status.retrySourceRun.id}:source-failures`}
-                    runId={status.retrySourceRun.id} outcome="FAILED" count={status.retrySourceRun.failed}
+                    key={`${retrySourceRun.id}:source-failures`}
+                    runId={retrySourceRun.id} outcome="FAILED" count={retrySourceRun.retryableCount} retryableOnly
                     {...retryControls}
                   />
                 </div>
