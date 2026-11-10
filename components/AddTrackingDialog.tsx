@@ -140,9 +140,8 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
   
   return (
     <>
-      <Button onClick={() => setIsOpen(true)}>
-        <Plus className="h-4 w-4 mr-2" />
-        添加运单
+      <Button variant="outline" size="icon" onClick={() => setIsOpen(true)} aria-label="添加运单" title="添加运单（⌘/Ctrl+J）">
+        <Plus className="h-4 w-4" />
       </Button>
       
       <Dialog open={isOpen} onOpenChange={setIsOpen}>

@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 运单号管理系统
 
-## Getting Started
+Next.js 15、React 19、Prisma 和 SQLite。支持运单、物流公司、货代商与归档管理，以及每日自动查询物流轨迹。
 
-First, run the development server:
+## 本地测试与恢复备份
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+在 `.env` 中配置数据库：
+
+```dotenv
+DATABASE_URL="file:./dev.db"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+这个路径相对于 `prisma/schema.prisma`，实际文件是项目中的 **`prisma/dev.db`**，不是项目根目录下的 `dev.db`。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+恢复数据库备份时，先停止本地开发服务，保留原文件备份，再把需要测试的数据库放到 `prisma/dev.db`。旧备份只有当时的表结构，每次重新恢复旧备份后，都需要重新执行待应用的迁移：
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sh
+npm ci
+npm run db:migrate
+npm run db:generate
+npm run dev
+```
 
-## Learn More
+已经安装依赖时可以跳过 `npm ci`。如果开发服务仍在运行，迁移和生成客户端后重启一次。默认开发环境不会自动抓取真实运单。
 
-To learn more about Next.js, take a look at the following resources:
+`npm run db:status` 可检查迁移状态。出现 `P2022`、`lastSyncedAt` 字段不存在或 `AppSettings` 表不存在，通常说明当前数据库尚未执行最新迁移。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+截图中若出现 `<body ap-style="">` 的 hydration 警告，属于另一类问题：应用代码没有这个属性，可能是浏览器扩展在 React 初始化前修改了页面。页面对 `body` 层的外来属性做了局部兼容；也可用禁用扩展的窗口对照验证。这个兼容不代替数据库迁移。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Debian 正式环境部署
 
-## Deploy on Vercel
+以下命令在 **Debian 服务器的项目目录** 中运行。本机执行迁移只会修改本机数据库，不会修改 Debian 上的数据库。代码发布时必须包含 `prisma/schema.prisma` 和完整的 `prisma/migrations/` 目录；不要用本地测试数据库覆盖正式数据。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+先停止应用服务并备份正式数据库，然后更新代码。确认部署终端与正式服务使用相同的 `DATABASE_URL`。默认 `file:./dev.db` 指向服务器项目中的 `prisma/dev.db`；也可配置固定绝对路径（例如 `file:/var/lib/tracking/dev.db`），让数据库独立于代码发布目录。运行用户需要能写入数据库及其所在目录。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+在 Debian 上安装依赖、执行迁移和构建：
+
+```sh
+npm ci --include=dev
+npm run db:migrate
+npm run db:generate
+npm run db:status
+npm run build
+```
+
+随后通过原有 systemd / PM2 配置重启应用，启动命令仍为 `npm start`。没有进程管理器时可手动执行 `npm start` 测试，正式环境应保持进程常驻。不要把 macOS 的 `node_modules` 复制到 Debian，Prisma 客户端应在 Debian 上生成。
+
+迁移命令的实际内容是：
+
+```sh
+npx prisma migrate deploy
+```
+
+当前项目使用 Prisma 6：它会根据数据库中的 `_prisma_migrations` 记录，按目录顺序执行 `prisma/migrations/*/migration.sql` 中尚未应用的迁移；不需要逐个手动运行 SQL。重复执行会跳过已成功应用的文件。本次迁移增加 scraper 设置、物流轨迹和任务锁，保留已有运单。`db:generate` 只生成 Prisma 客户端，不修改数据库；`npm run build` 和 `npm start` 也不会自动执行迁移。
+
+迁移执行失败时先保留报错排查，不要使用 `prisma migrate reset`，它会清空数据。
+
+## Scraper 页面
+
+点击导航中「归档运单」右侧的 **scraper**，进入 `/scraper` 页面，填写 [universal-parcel-scraper](https://github.com/plhery/universal-parcel-scraper) 服务的基础地址并保存。默认 `http://127.0.0.1:18080`，设置存入数据库；不带协议的地址自动补全为 HTTP。
+
+页面可以配置每天自动抓取的北京时间，默认 **05:00**，精确到分钟。保存后调度器会读取新时间；修改地址与时间不会中途改变已经启动的任务。
+
+页面每两秒刷新抓取状态，显示已处理 / 总数、成功、失败、跳过、当前运单和用时。完成、停止或中断后，统计保存在数据库中，重新打开页面仍能查看上一次结果。
+
+- **立即抓取**：立即启动一轮后台查询，开发环境也可使用。当日已抓取过的待处理 / 运输中运单也会再次查询；仍排除归档、异常和已签收。
+- **停止抓取**：停止当前这一轮，保留已经保存的结果，取消管理端正在等待的请求及后续队列。scraper 已启动的远端浏览器任务能否立即结束由其服务自身决定。
+- 手动与自动任务共用数据库锁，同一时间只运行一轮；关闭页面不会停止后台任务。
+- 取消当日自动任务后不会在下一分钟重新启动；次日仍按计划运行。
+
+地址必须能由**管理系统的服务器**访问。若两个服务位于不同主机或 Docker 容器，应填写局域网 IP 或容器服务名。无需附加 `/v1/track`。
+
+集成遵循上游 [HTTP OpenAPI](https://github.com/plhery/universal-parcel-scraper/blob/main/server/openapi.json)，向 `POST /v1/track` 发送单号和已识别的物流公司标识。
+
+## 自动同步
+
+- 生产服务启动后自动运行调度器，无需打开浏览器或另设 cron。服务需要常驻运行；不适用于按请求启动、空闲即停的部署方式。
+- 使用 **Node 进程内的定时器**，每分钟检查一次 `Asia/Shanghai` 时间。默认每天 **05:00**，也可在 scraper 页面修改。错过当天计划时间后启动会补跑；当天已经完成的自动任务不会因为修改时间而重复运行。
+- 只查询**非归档**且处于**待处理 / 运输中**的运单，排除异常及已签收。
+- 查询串行执行，并发为 **1**，两次请求间隔至少 **2 秒**。每次 scraper 预算 120 秒、网络超时 180 秒，给 Chromium 查询留出时间。
+- 数据库任务锁和续期机制避免多个服务实例重复并发查询；实例需共享同一个 SQLite 数据库。
+- 保存轨迹时去重合并，保留已有历史，并根据返回状态更新运单。可从待处理直接变为已签收；过时的待揽收状态不会把运输中的运单退回待处理。
+- 查询失败只记录错误，不改变业务状态、不删除历史。同步期间的人工修改受保护。
+- 若进程意外退出，任务锁到期后会显示「已中断」并保留已完成统计，避免页面一直显示抓取中。停止、中断的剩余项目不会被计入成功或失败。
+- 鼠标悬浮或键盘聚焦官网查询按钮可查看保存的物流轨迹，最新记录在上方。点击仍打开官网；归档后保留相同展示。浮层只读数据库，不发起实时抓取。
+- 已知时区的轨迹时间显示为北京时间；未提供时区的轨迹保留承运商原始时间。
+
+默认开发环境不自动查询。需要开发调试时使用 `TRACKING_SYNC_ENABLED=true npm run dev`；生产环境可用 `TRACKING_SYNC_ENABLED=false` 暂停自动查询。
+
+## 检查
+
+```sh
+npm test
+npx tsc --noEmit
+npm run build
+```
+
+测试使用临时 SQLite 数据库和模拟 scraper 响应，不查询真实运单。

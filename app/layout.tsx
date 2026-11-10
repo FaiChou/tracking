@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { NavbarActionsProvider } from "@/components/NavbarActions";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,9 +26,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Browser extensions may add attributes to body before React hydrates.
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background`}
       >
         <ThemeProvider
@@ -36,17 +39,19 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <main className="flex-1 container mx-auto py-6 px-4">
-              {children}
-            </main>
-            <footer className="border-t py-4 text-center text-sm text-muted-foreground">
-              <div className="container mx-auto">
-                运单号管理系统 &copy; {new Date().getFullYear()} FaiChou
-              </div>
-            </footer>
-          </div>
+          <NavbarActionsProvider>
+            <div className="flex flex-col min-h-screen">
+              <Navbar />
+              <main className="flex-1 container mx-auto py-6 px-4">
+                {children}
+              </main>
+              <footer className="border-t py-4 text-center text-sm text-muted-foreground">
+                <div className="container mx-auto">
+                  运单号管理系统 &copy; {new Date().getFullYear()} FaiChou
+                </div>
+              </footer>
+            </div>
+          </NavbarActionsProvider>
           <Toaster />
         </ThemeProvider>
       </body>

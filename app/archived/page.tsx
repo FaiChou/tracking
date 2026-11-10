@@ -10,9 +10,10 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import TrackingHistoryButton from "@/components/TrackingHistoryButton";
 import { toast } from "sonner";
 import { TrackingStatus } from "@prisma/client";
-import { ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 type Tracking = {
   id: string;
@@ -31,6 +32,7 @@ type SortOrder = "asc" | "desc";
 export default function ArchivedPage() {
   const [archivedTrackings, setArchivedTrackings] = useState<Tracking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   
   // 排序状态
   const [sortField, setSortField] = useState<SortField>("updatedAt");
@@ -39,12 +41,16 @@ export default function ArchivedPage() {
   // 获取归档运单
   const fetchArchivedTrackings = async () => {
     setIsLoading(true);
+    setLoadError(false);
     try {
       const res = await fetch("/api/trackings/archived");
-      const data = await res.json();
+      if (!res.ok) throw new Error("获取归档运单失败");
+      const data: unknown = await res.json();
+      if (!Array.isArray(data)) throw new Error("归档运单数据格式错误");
       setArchivedTrackings(data);
     } catch (error) {
       console.error("Failed to fetch archived trackings:", error);
+      setLoadError(true);
       toast.error("获取归档运单失败");
     } finally {
       setIsLoading(false);
@@ -72,16 +78,6 @@ export default function ArchivedPage() {
       console.error("Failed to unarchive tracking:", error);
       toast.error("取消归档失败");
     }
-  };
-  
-  // 官网查询
-  const searchOfficial = (tracking: Tracking) => {
-    if (!tracking.logisticsCompany?.trackingUrl) {
-      toast.error("未设置物流公司或查询网址");
-      return;
-    }
-    
-    window.open(`${tracking.logisticsCompany.trackingUrl}${tracking.trackingNumber}`, "_blank");
   };
   
   // 获取状态颜色
@@ -153,28 +149,35 @@ export default function ArchivedPage() {
     return 0;
   });
   
-  if (isLoading) {
+  const errorNotice = loadError && (
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+      <p className="text-sm text-destructive">
+        获取归档运单失败。{archivedTrackings.length > 0 ? "当前保留上次加载的数据。" : "请重试。"}
+      </p>
+      <Button type="button" variant="outline" size="sm" onClick={() => void fetchArchivedTrackings()}>重试加载归档运单</Button>
+    </div>
+  );
+
+  if (isLoading && archivedTrackings.length === 0) {
     return <div className="text-center py-8">加载中...</div>;
   }
   
   if (archivedTrackings.length === 0) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">归档运单</h1>
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">暂无归档运单</p>
-        </div>
+      <div className="space-y-4">
+        {errorNotice}
+        {!loadError && (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">暂无归档运单</p>
+          </div>
+        )}
       </div>
     );
   }
   
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">归档运单</h1>
-        <p className="text-sm text-muted-foreground">显示最近200条归档记录</p>
-      </div>
-      
+      {errorNotice}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -264,15 +267,11 @@ export default function ArchivedPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => searchOfficial(tracking)}
-                      disabled={!tracking.logisticsCompany?.trackingUrl}
-                      title="官网查询"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+                    <TrackingHistoryButton
+                      trackingId={tracking.id}
+                      trackingNumber={tracking.trackingNumber}
+                      trackingUrl={tracking.logisticsCompany?.trackingUrl}
+                    />
                     <Button
                       variant="outline"
                       size="sm"
@@ -287,6 +286,7 @@ export default function ArchivedPage() {
           </TableBody>
         </Table>
       </div>
+      <p className="text-right text-sm text-muted-foreground">已显示 {archivedTrackings.length} 条归档记录（最多 500 条）</p>
     </div>
   );
-} 
+}

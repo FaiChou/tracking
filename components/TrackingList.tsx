@@ -31,8 +31,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TrackingStatus } from "@prisma/client";
-import { ExternalLink, Archive, Trash2, Search, Pencil, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Copy, Flame } from "lucide-react";
+import { Archive, Trash2, Search, Pencil, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Copy, Flame } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils";
+import TrackingHistoryButton from "@/components/TrackingHistoryButton";
 
 // 定义运单类型
 type Tracking = {
@@ -87,6 +88,8 @@ export default function TrackingList({
   const [trackingToDelete, setTrackingToDelete] = useState<string | null>(null);
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [metadataError, setMetadataError] = useState(false);
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState("");
   
@@ -97,15 +100,23 @@ export default function TrackingList({
   // 获取运单数据
   const fetchTrackings = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(false);
     try {
       // 获取总数据量
       const totalRes = await fetch("/api/trackings/count");
-      const totalData = await totalRes.json();
+      if (!totalRes.ok) throw new Error("获取运单统计失败");
+      const totalData: unknown = await totalRes.json();
+      if (!totalData || typeof totalData !== "object" || !("count" in totalData)
+        || typeof totalData.count !== "number" || !Number.isFinite(totalData.count)) {
+        throw new Error("运单统计数据格式错误");
+      }
       const totalCount = totalData.count;
       
       // 获取过滤后的数据
       const res = await fetch(apiUrl);
-      const data = await res.json();
+      if (!res.ok) throw new Error("获取运单数据失败");
+      const data: unknown = await res.json();
+      if (!Array.isArray(data)) throw new Error("运单数据格式错误");
       setTrackings(data);
       
       // 更新统计数据
@@ -114,6 +125,7 @@ export default function TrackingList({
       }
     } catch (error) {
       console.error("Failed to fetch trackings:", error);
+      setLoadError(true);
       toast.error("获取运单数据失败");
     } finally {
       setIsLoading(false);
@@ -122,19 +134,27 @@ export default function TrackingList({
   
   // 获取物流公司和货代商数据
   const fetchData = useCallback(async () => {
+    setMetadataError(false);
     try {
       const [logisticsRes, forwardersRes] = await Promise.all([
         fetch("/api/logistics-companies"),
         fetch("/api/forwarders")
       ]);
-      
-      const logisticsData = await logisticsRes.json();
-      const forwardersData = await forwardersRes.json();
+      if (!logisticsRes.ok || !forwardersRes.ok) {
+        throw new Error("获取物流公司或货代商列表失败");
+      }
+      const [logisticsData, forwardersData]: unknown[] = await Promise.all([
+        logisticsRes.json(), forwardersRes.json(),
+      ]);
+      if (!Array.isArray(logisticsData) || !Array.isArray(forwardersData)) {
+        throw new Error("物流公司或货代商列表格式错误");
+      }
       
       setLogisticsCompanies(logisticsData);
       setForwarders(forwardersData);
     } catch (error) {
       console.error("Failed to fetch data:", error);
+      setMetadataError(true);
     }
   }, []);
   
@@ -525,16 +545,6 @@ export default function TrackingList({
     window.open(`https://t.17track.net/zh-cn#nums=${trackingNumbers}`, "_blank");
   };
   
-  // 官网查询
-  const searchOfficial = (tracking: Tracking) => {
-    if (!tracking.logisticsCompany?.trackingUrl) {
-      toast.error("未设置物流公司或查询网址");
-      return;
-    }
-    
-    window.open(`${tracking.logisticsCompany.trackingUrl}${tracking.trackingNumber}`, "_blank");
-  };
-  
   // 获取状态颜色
   const getStatusColor = (status: TrackingStatus) => {
     switch (status) {
@@ -549,20 +559,45 @@ export default function TrackingList({
     }
   };
   
-  if (isLoading) {
+  const loadErrors = (
+    <>
+      {loadError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+          <p className="text-sm text-destructive">
+            获取运单数据失败。{trackings.length > 0 ? "当前保留上次加载的数据。" : "请重试。"}
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void fetchTrackings()}>重试加载运单</Button>
+        </div>
+      )}
+      {metadataError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+          <p className="text-sm text-destructive">物流公司或货代商列表加载失败，请重试。</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void fetchData()}>重试加载选项</Button>
+        </div>
+      )}
+    </>
+  );
+
+  if (isLoading && trackings.length === 0) {
     return <div className="text-center py-8">加载中...</div>;
   }
   
   if (trackings.length === 0) {
     return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground mb-4">暂无运单数据</p>
+      <div className="space-y-4">
+        {loadErrors}
+        {!loadError && (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground mb-4">暂无运单数据</p>
+          </div>
+        )}
       </div>
     );
   }
   
   return (
     <div className="space-y-4">
+      {loadErrors}
       {selectedTrackings.length > 0 && (
         <div className="flex items-center justify-between bg-muted p-2 rounded-md">
           <div className="flex items-center space-x-2">
@@ -776,15 +811,11 @@ export default function TrackingList({
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => searchOfficial(tracking)}
-                      disabled={!tracking.logisticsCompany?.trackingUrl}
-                      title="官网查询"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+                    <TrackingHistoryButton
+                      trackingId={tracking.id}
+                      trackingNumber={tracking.trackingNumber}
+                      trackingUrl={tracking.logisticsCompany?.trackingUrl}
+                    />
                     
                     <Button
                       variant="outline"
@@ -856,4 +887,4 @@ export default function TrackingList({
       </AlertDialog>
     </div>
   );
-} 
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Table, 
   TableBody, 
@@ -30,7 +30,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import { useNavbarAddAction } from "@/components/NavbarActions";
 import { copyToClipboard } from "@/lib/utils";
 
 type Forwarder = {
@@ -90,7 +91,7 @@ export default function ForwardersPage() {
   }, []);
   
   // 打开编辑对话框
-  const openEditDialog = (forwarder: Forwarder | null) => {
+  const openEditDialog = useCallback((forwarder: Forwarder | null) => {
     setEditingForwarder(forwarder);
     if (forwarder) {
       setName(forwarder.name);
@@ -104,7 +105,9 @@ export default function ForwardersPage() {
       setSortOrder("0");
     }
     setIsDialogOpen(true);
-  };
+  }, []);
+  const openAddDialog = useCallback(() => openEditDialog(null), [openEditDialog]);
+  useNavbarAddAction("添加货代商", openAddDialog);
   
   // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
@@ -192,20 +195,9 @@ export default function ForwardersPage() {
   
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">货代商管理</h1>
-        <Button onClick={() => openEditDialog(null)}>
-          <Plus className="h-4 w-4 mr-2" />
-          添加货代商
-        </Button>
-      </div>
-      
       {forwarders.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-muted-foreground mb-4">暂无货代商数据</p>
-          <Button onClick={() => openEditDialog(null)}>
-            添加货代商
-          </Button>
         </div>
       ) : (
         <div className="rounded-md border">

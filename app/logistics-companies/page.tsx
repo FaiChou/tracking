@@ -30,7 +30,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import { useNavbarAddAction } from "@/components/NavbarActions";
 
 type LogisticsCompany = {
   id: string;
@@ -98,7 +99,7 @@ export default function LogisticsCompaniesPage() {
   }, []);
   
   // 打开编辑对话框
-  const openEditDialog = (company: LogisticsCompany | null) => {
+  const openEditDialog = useCallback((company: LogisticsCompany | null) => {
     setEditingCompany(company);
     if (company) {
       setName(company.name);
@@ -112,7 +113,9 @@ export default function LogisticsCompaniesPage() {
       setSortOrder("0");
     }
     setIsDialogOpen(true);
-  };
+  }, []);
+  const openAddDialog = useCallback(() => openEditDialog(null), [openEditDialog]);
+  useNavbarAddAction("添加物流公司", openAddDialog);
   
   // 使用示例
   const applyExample = useCallback((example: { name: string; trackingUrl: string }) => {
@@ -201,20 +204,9 @@ export default function LogisticsCompaniesPage() {
   
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">物流公司管理</h1>
-        <Button onClick={() => openEditDialog(null)}>
-          <Plus className="h-4 w-4 mr-2" />
-          添加物流公司
-        </Button>
-      </div>
-      
       {companies.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-muted-foreground mb-4">暂无物流公司数据</p>
-          <Button onClick={() => openEditDialog(null)}>
-            添加物流公司
-          </Button>
         </div>
       ) : (
         <div className="rounded-md border">

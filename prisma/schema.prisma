@@ -52,6 +52,10 @@ model Tracking {
   isUrgent          Boolean         @default(false)  // 是否加急
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
+  lastSyncedAt      DateTime?
+  lastSyncAttemptAt DateTime?
+  lastSyncError     String?
+  events            TrackingEvent[]
   
   // 关联物流公司
   logisticsCompany  LogisticsCompany? @relation(fields: [logisticsCompanyId], references: [id])
@@ -60,4 +64,57 @@ model Tracking {
   // 关联货代商
   forwarder         Forwarder?      @relation(fields: [forwarderId], references: [id])
   forwarderId       String?
+
+  @@index([isArchived, status])
+}
+
+model AppSettings {
+  id            String @id @default("default")
+  scraperUrl    String @default("http://127.0.0.1:18080")
+  dailySyncTime String @default("05:00")
+}
+
+model TrackingEvent {
+  id          String    @id @default(cuid())
+  trackingId  String
+  eventKey    String
+  occurredAt  DateTime?
+  timeText    String?
+  description String
+  stage       String?
+  location    String?
+  tieOrder    Int       @default(0)
+  tracking    Tracking  @relation(fields: [trackingId], references: [id], onDelete: Cascade)
+
+  @@unique([trackingId, eventKey])
+  @@index([trackingId, occurredAt])
+}
+
+model SyncJob {
+  id          String    @id
+  lastRunDate String?
+  lockedUntil DateTime?
+  lockToken   String?
+  activeRunId String?
+}
+
+model SyncRun {
+  id                    String   @id @default(cuid())
+  trigger               String
+  status                String
+  total                 Int      @default(0)
+  processed             Int      @default(0)
+  succeeded             Int      @default(0)
+  failed                Int      @default(0)
+  skipped               Int      @default(0)
+  startedAt             DateTime @default(now())
+  finishedAt            DateTime?
+  durationMs            Int?
+  currentTrackingNumber String?
+  stopRequested         Boolean  @default(false)
+  error                 String?
+  updatedAt             DateTime @updatedAt
+
+  @@index([startedAt])
+  @@index([status])
 }
