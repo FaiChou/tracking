@@ -26,7 +26,7 @@ const STATUS_COLORS: Record<TrackingStatus, string> = {
   DELIVERED: "text-green-600 dark:text-green-400", EXCEPTION: "text-red-600 dark:text-red-400",
 };
 const SOURCE_LABELS: Record<ChangeSource, string> = {
-  SCHEDULED_SCRAPE: "定时抓取", MANUAL_SCRAPE: "立即抓取", MANUAL_EDIT: "手动修改",
+  SCHEDULED_SCRAPE: "scraper", MANUAL_SCRAPE: "scraper", MANUAL_EDIT: "手动修改",
 };
 const LOG_LIMIT = 500;
 
