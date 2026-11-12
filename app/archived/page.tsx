@@ -271,6 +271,15 @@ export default function ArchivedPage() {
                       trackingId={tracking.id}
                       trackingNumber={tracking.trackingNumber}
                       trackingUrl={tracking.logisticsCompany?.trackingUrl}
+                      onSynced={({ status }) => {
+                        setArchivedTrackings(current =>
+                          current.map(item =>
+                            item.id === tracking.id
+                              ? { ...item, status, updatedAt: new Date().toISOString() }
+                              : item
+                          )
+                        );
+                      }}
                     />
                     <Button
                       variant="outline"

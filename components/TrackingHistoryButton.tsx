@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { ExternalLink, Loader2, MapPin } from "lucide-react";
+import { ExternalLink, Loader2, MapPin, RefreshCw } from "lucide-react";
+import type { TrackingStatus } from "@prisma/client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 
@@ -19,6 +21,12 @@ type TrackingHistory = {
   lastSyncedAt: string | null;
   lastSyncAttemptAt: string | null;
   lastSyncError: string | null;
+};
+
+type SingleSyncResponse = TrackingHistory & {
+  status: TrackingStatus;
+  previousStatus: TrackingStatus;
+  statusChanged: boolean;
 };
 
 const STAGE_STYLES: Record<string, { label: string; badge: string; dot: string }> = {
@@ -139,14 +147,17 @@ export default function TrackingHistoryButton({
   trackingId,
   trackingNumber,
   trackingUrl,
+  onSynced,
 }: {
   trackingId: string;
   trackingNumber: string;
   trackingUrl?: string | null;
+  onSynced?: (result: { status: TrackingStatus; statusChanged: boolean }) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState<TrackingHistory | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -154,6 +165,8 @@ export default function TrackingHistoryButton({
   const contentRef = useRef<HTMLDivElement>(null);
   const returnFocusAfterClose = useRef(false);
   const restoringFocus = useRef(false);
+  const syncingRef = useRef(false);
+  const loadControllerRef = useRef<AbortController | null>(null);
   const loadedAt = useRef(0);
   const popoverId = useId();
   const titleId = useId();
@@ -170,9 +183,59 @@ export default function TrackingHistoryButton({
 
   const scheduleClose = () => {
     cancelClose();
+    if (syncingRef.current) return;
     closeTimer.current = setTimeout(() => {
-      if (!contentRef.current?.contains(document.activeElement)) setOpen(false);
+      if (!syncingRef.current && !contentRef.current?.contains(document.activeElement)) setOpen(false);
     }, 200);
+  };
+
+  const handleManualSync = async () => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+    loadControllerRef.current?.abort();
+    setIsLoading(false);
+    setIsSyncing(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/trackings/${encodeURIComponent(trackingId)}/history`, {
+        method: "POST",
+        cache: "no-store",
+      });
+      const data: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = data !== null && typeof data === "object" && "message" in data && typeof data.message === "string"
+          ? data.message
+          : "手动抓取失败，请重试";
+        throw new Error(message);
+      }
+      const syncResult = data as SingleSyncResponse;
+      setHistory({
+        events: syncResult.events,
+        lastSyncedAt: syncResult.lastSyncedAt,
+        lastSyncAttemptAt: syncResult.lastSyncAttemptAt,
+        lastSyncError: syncResult.lastSyncError,
+      });
+      loadedAt.current = Date.now();
+      onSynced?.({ status: syncResult.status, statusChanged: syncResult.statusChanged });
+      toast.success(syncResult.statusChanged ? "抓取完成，已更新物流轨迹与状态" : "抓取完成，已更新物流轨迹");
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "手动抓取失败，请重试";
+      toast.error(message);
+      setHistory(current => {
+        if (!current) {
+          setError(message);
+          return null;
+        }
+        return {
+          ...current,
+          lastSyncError: message,
+          lastSyncAttemptAt: new Date().toISOString(),
+        };
+      });
+    } finally {
+      syncingRef.current = false;
+      setIsSyncing(false);
+    }
   };
 
   useEffect(() => () => {
@@ -180,8 +243,9 @@ export default function TrackingHistoryButton({
   }, []);
 
   useEffect(() => {
-    if (!open || Date.now() - loadedAt.current < 60_000) return;
+    if (!open || syncingRef.current || Date.now() - loadedAt.current < 60_000) return;
     const controller = new AbortController();
+    loadControllerRef.current = controller;
     setIsLoading(true);
     setError(null);
 
@@ -277,13 +341,33 @@ export default function TrackingHistoryButton({
         onBlurCapture={scheduleClose}
       >
         <div className="shrink-0 border-b px-4 py-3">
-          <h2 id={titleId} className="font-semibold">物流轨迹</h2>
-          <p className="mt-1 break-all text-xs text-muted-foreground">{trackingNumber}</p>
-          {history?.lastSyncedAt && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              更新于 {formatTime(history.lastSyncedAt)}（北京时间）
-            </p>
-          )}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id={titleId} className="font-semibold">物流轨迹</h2>
+              <p className="mt-1 break-all text-xs text-muted-foreground">{trackingNumber}</p>
+              {history?.lastSyncedAt && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  抓取于 {formatTime(history.lastSyncedAt)}（北京时间）
+                </p>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              disabled={isSyncing}
+              onClick={() => void handleManualSync()}
+              aria-label={`手动抓取 ${trackingNumber} 的最新物流轨迹`}
+            >
+              {isSyncing ? (
+                <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+              )}
+              {isSyncing ? "抓取中…" : "手动抓取"}
+            </Button>
+          </div>
         </div>
         <div className="min-h-0 max-h-[min(26rem,60vh)] overflow-y-auto overscroll-contain p-4" tabIndex={0} aria-label="物流轨迹列表">
           {isLoading && (

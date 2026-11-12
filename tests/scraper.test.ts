@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   fetchParcel, mapScraperStage, parseScraperResponse, scraperCarrier, ScraperHttpError,
 } from "../lib/scraper";
-import { getDueRunDate, nextScheduledAt, normalizeDailySyncTime, runDateStart, schedulerEnabled } from "../lib/tracking-schedule";
+import {
+  getDueRunDate, nextScheduledAt, normalizeDailySyncTime, normalizeDailySyncTimes, runDateStart, schedulerEnabled,
+} from "../lib/tracking-schedule";
 
 test("official stages map to business statuses without turning unknown states into exceptions", () => {
   for (const stage of ["pending", "registered"]) assert.equal(mapScraperStage(stage), "PENDING");
@@ -99,11 +101,24 @@ test("daily scheduling follows Shanghai 05:00 across UTC dates and excludes buil
 
 test("configurable daily times validate HH:mm and report the next Shanghai occurrence", () => {
   assert.equal(normalizeDailySyncTime(" 08:37 "), "08:37");
-  for (const invalid of ["8:37", "24:00", "12:60", "", null]) assert.throws(() => normalizeDailySyncTime(invalid));
+  assert.deepEqual(normalizeDailySyncTimes([" 17:00 ", "05:00", "17:00"]), ["05:00", "17:00"]);
+  assert.equal(normalizeDailySyncTime("17:00, 05:00"), "05:00,17:00");
+  for (const invalid of ["8:37", "24:00", "12:60", "", null, [], ["05:00", "bad"]]) {
+    assert.throws(() => normalizeDailySyncTime(invalid));
+  }
   assert.equal(getDueRunDate(new Date("2026-11-10T08:36:59+08:00"), "08:37"), null);
   assert.equal(getDueRunDate(new Date("2026-11-10T08:37:00+08:00"), "08:37"), "2026-11-10");
   assert.equal(nextScheduledAt(new Date("2026-11-10T08:36:59+08:00"), "08:37").toISOString(), "2026-11-10T00:37:00.000Z");
   assert.equal(nextScheduledAt(new Date("2026-11-10T08:37:00+08:00"), "08:37").toISOString(), "2026-11-10T00:37:00.000Z");
   assert.equal(nextScheduledAt(new Date("2026-11-10T10:00:00+08:00"), "08:37").toISOString(), "2026-11-10T00:37:00.000Z");
   assert.equal(nextScheduledAt(new Date("2026-11-10T08:00:00+08:00"), "08:37", "2026-11-10").toISOString(), "2026-11-11T00:37:00.000Z");
+
+  // Multiple daily times schedule each slot in order and roll over to tomorrow's first slot after the last one.
+  const multi = "05:00,17:00";
+  assert.equal(getDueRunDate(new Date("2026-11-10T04:59:59+08:00"), multi), null);
+  assert.equal(getDueRunDate(new Date("2026-11-10T05:00:00+08:00"), multi), "2026-11-10@05:00");
+  assert.equal(getDueRunDate(new Date("2026-11-10T06:00:00+08:00"), multi, "2026-11-10@05:00"), null);
+  assert.equal(nextScheduledAt(new Date("2026-11-10T06:00:00+08:00"), multi, "2026-11-10@05:00").toISOString(), "2026-11-10T09:00:00.000Z");
+  assert.equal(getDueRunDate(new Date("2026-11-10T17:00:00+08:00"), multi, "2026-11-10@05:00"), "2026-11-10@17:00");
+  assert.equal(nextScheduledAt(new Date("2026-11-10T18:00:00+08:00"), multi, "2026-11-10@17:00").toISOString(), "2026-11-10T21:00:00.000Z");
 });

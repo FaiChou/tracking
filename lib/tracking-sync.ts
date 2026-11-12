@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { DEFAULT_SCRAPER_URL } from "@/lib/scraper-url";
 import { fetchParcel, ScraperHttpError, type ScraperResult } from "@/lib/scraper";
 import { DEFAULT_DAILY_SYNC_TIME, getDueRunDate, runDateStart } from "@/lib/tracking-schedule";
+import { newestEventsFirst } from "@/lib/tracking-history";
 import { recordTrackingStatusChange } from "@/lib/tracking-status-log";
 import { getSyncRunItems, retryUnavailableReason, RetryTrackingError, selectRetryCandidates } from "@/lib/sync-run-items";
 
@@ -118,11 +119,18 @@ export async function requestTrackingSyncStop(runId: string, options: SyncOption
   const run = await db.$transaction(async tx => {
     const current = await tx.syncRun.findUnique({ where: { id: runId } });
     if (!current || !ACTIVE_STATUSES.includes(current.status)) return current;
+    const settings = current.trigger === "scheduled"
+      ? await tx.appSettings.findUnique({ where: { id: "default" }, select: { dailySyncTime: true } })
+      : null;
+    const stoppedSlot = current.trigger === "scheduled"
+      ? getDueRunDate(current.startedAt, settings?.dailySyncTime ?? DEFAULT_DAILY_SYNC_TIME)
+        ?? getDueRunDate(current.startedAt, "00:00")
+      : null;
     const stopped = await tx.syncJob.updateMany({
       where: { id: JOB_ID, activeRunId: runId, lockedUntil: { gt: now() } },
       // Persist this immediately so a crash after Stop cannot restart today's scheduled run.
       data: current.trigger === "scheduled"
-        ? { lastRunDate: getDueRunDate(current.startedAt, "00:00") }
+        ? { lastRunDate: stoppedSlot }
         : { activeRunId: runId },
     });
     if (stopped.count !== 1) return current;
@@ -142,21 +150,21 @@ async function claimRun(trigger: "manual" | "scheduled" | "retry", options: Sync
     where: { id: "default" }, update: {},
     create: { id: "default", scraperUrl: DEFAULT_SCRAPER_URL, dailySyncTime: DEFAULT_DAILY_SYNC_TIME },
   });
-  const runDate = trigger === "scheduled" ? getDueRunDate(now(), settings.dailySyncTime) : null;
-  if (trigger === "scheduled" && !runDate) return { context: null, reason: "尚未到每日抓取时间" };
-  const startedAfter = runDate ? runDateStart(runDate, settings.dailySyncTime) : null;
+  const preliminaryDue = trigger === "scheduled" ? getDueRunDate(now(), settings.dailySyncTime) : null;
+  if (trigger === "scheduled" && !preliminaryDue) return { context: null, reason: "尚未到每日抓取时间" };
   await recoverInterruptedRuns(db, now);
   const lockToken = randomUUID();
   const runId = randomUUID();
   const claimed = await db.$transaction(async tx => {
-    await tx.syncJob.upsert({ where: { id: JOB_ID }, create: { id: JOB_ID }, update: {} });
+    const job = await tx.syncJob.upsert({ where: { id: JOB_ID }, create: { id: JOB_ID }, update: {} });
+    const runDate = trigger === "scheduled" ? getDueRunDate(now(), settings.dailySyncTime, job.lastRunDate) : null;
+    if (trigger === "scheduled" && !runDate) return null;
+    const startedAfter = runDate ? runDateStart(runDate, settings.dailySyncTime) : null;
     const claim = await tx.syncJob.updateMany({
       where: {
         id: JOB_ID,
-        AND: [
-          { OR: [{ lockedUntil: null }, { lockedUntil: { lte: now() } }] },
-          ...(runDate ? [{ OR: [{ lastRunDate: null }, { lastRunDate: { not: runDate } }] }] : []),
-        ],
+        lastRunDate: job.lastRunDate,
+        OR: [{ lockedUntil: null }, { lockedUntil: { lte: now() } }],
       },
       data: { lockToken, activeRunId: runId, lockedUntil: new Date(now().getTime() + LEASE_MS) },
     });
@@ -178,10 +186,10 @@ async function claimRun(trigger: "manual" | "scheduled" | "retry", options: Sync
         retryOfRunId: retrySource ? retrySource.retryOfRunId ?? retrySource.id : null,
       },
     });
-    return { run, candidates };
+    return { run, candidates, runDate, startedAfter };
   }, { timeout: 30_000 });
   return claimed ? {
-    context: { ...deps, ...claimed, lockToken, scraperUrl: settings.scraperUrl, runDate, startedAfter },
+    context: { ...deps, ...claimed, lockToken, scraperUrl: settings.scraperUrl },
   } : { context: null, reason: "已有抓取任务正在运行，或今日定时抓取已完成" };
 }
 
@@ -425,4 +433,110 @@ export async function startRetryTrackingSync(sourceRunId: string, trackingId?: s
   }
   void executeRun(claimed.context).catch(error => { console.error("[tracking-sync] Retry run failed", error); });
   return { started: true, run: claimed.context.run };
+}
+
+export type SingleTrackingSyncResult = {
+  id: string;
+  trackingNumber: string;
+  previousStatus: TrackingStatus;
+  status: TrackingStatus;
+  statusChanged: boolean;
+  lastSyncedAt: Date | null;
+  lastSyncAttemptAt: Date | null;
+  lastSyncError: string | null;
+  events: {
+    id: string;
+    occurredAt: Date | null;
+    timeText: string | null;
+    description: string;
+    stage: string | null;
+    location: string | null;
+    tieOrder: number;
+  }[];
+};
+
+export async function syncSingleTracking(
+  trackingId: string,
+  options: SyncOptions = {},
+): Promise<SingleTrackingSyncResult | null> {
+  const { db, now, fetchTracking } = dependencies(options);
+  const tracking = await db.tracking.findUnique({
+    where: { id: trackingId },
+    include: { logisticsCompany: { select: { name: true } } },
+  });
+  if (!tracking) return null;
+
+  const settings = await db.appSettings.upsert({
+    where: { id: "default" },
+    update: {},
+    create: { id: "default", scraperUrl: DEFAULT_SCRAPER_URL, dailySyncTime: DEFAULT_DAILY_SYNC_TIME },
+  });
+
+  const attemptedAt = now();
+  let answer: ScraperResult;
+  try {
+    answer = await fetchTracking(settings.scraperUrl, tracking);
+  } catch (error) {
+    const message = errorMessage(error);
+    await db.tracking.updateMany({
+      where: { id: tracking.id },
+      data: { lastSyncAttemptAt: attemptedAt, lastSyncError: message },
+    });
+    throw new Error(message);
+  }
+
+  return db.$transaction(async tx => {
+    const current = await tx.tracking.findUnique({ where: { id: tracking.id } });
+    if (!current) return null;
+    const finishedAt = now();
+    const nextStatus = nextTrackingStatus(current.status, answer);
+    await tx.tracking.update({
+      where: { id: current.id },
+      data: {
+        status: nextStatus,
+        lastSyncAttemptAt: attemptedAt,
+        lastSyncedAt: finishedAt,
+        lastSyncError: null,
+      },
+    });
+    await recordTrackingStatusChange(tx, {
+      trackingId: current.id,
+      trackingNumber: current.trackingNumber,
+      fromStatus: current.status,
+      toStatus: nextStatus,
+      source: TrackingStatusChangeSource.MANUAL_SCRAPE,
+      createdAt: finishedAt,
+    });
+    for (const event of answer.events) {
+      await tx.trackingEvent.upsert({
+        where: { trackingId_eventKey: { trackingId: current.id, eventKey: event.eventKey } },
+        create: { trackingId: current.id, ...event },
+        update: event,
+      });
+    }
+    const events = await tx.trackingEvent.findMany({
+      where: { trackingId: current.id },
+      orderBy: [{ occurredAt: "desc" }, { tieOrder: "desc" }, { id: "desc" }],
+      select: {
+        id: true,
+        occurredAt: true,
+        timeText: true,
+        description: true,
+        stage: true,
+        location: true,
+        tieOrder: true,
+      },
+    });
+    return {
+      id: current.id,
+      trackingNumber: current.trackingNumber,
+      previousStatus: current.status,
+      status: nextStatus,
+      statusChanged: current.status !== nextStatus,
+      lastSyncedAt: finishedAt,
+      lastSyncAttemptAt: attemptedAt,
+      lastSyncError: null,
+      events: newestEventsFirst(events),
+    };
+  }, { timeout: 30_000 });
 }

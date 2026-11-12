@@ -815,6 +815,13 @@ export default function TrackingList({
                       trackingId={tracking.id}
                       trackingNumber={tracking.trackingNumber}
                       trackingUrl={tracking.logisticsCompany?.trackingUrl}
+                      onSynced={({ status }) => {
+                        setTrackings(current =>
+                          current.map(item =>
+                            item.id === tracking.id ? { ...item, status } : item
+                          )
+                        );
+                      }}
                     />
                     
                     <Button

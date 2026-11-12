@@ -21,7 +21,8 @@ export async function GET() {
       NODE_ENV: process.env.NODE_ENV,
     });
     const handledDate = state.activeRun?.trigger === "scheduled"
-      ? getDueRunDate(state.activeRun.startedAt, "00:00")
+      ? getDueRunDate(state.activeRun.startedAt, settings.dailySyncTime)
+        ?? getDueRunDate(state.activeRun.startedAt, "00:00")
       : job?.lastRunDate;
 
     return NextResponse.json({

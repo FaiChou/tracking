@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { before, after, beforeEach, test } from "node:test";
 import { PrismaClient, TrackingStatus } from "@prisma/client";
-import { getTrackingSyncStatus, requestTrackingSyncStop, runDailyTrackingSync, startManualTrackingSync } from "../lib/tracking-sync";
+import {
+  getTrackingSyncStatus, requestTrackingSyncStop, runDailyTrackingSync, startManualTrackingSync, syncSingleTracking,
+} from "../lib/tracking-sync";
 import { parseScraperResponse, ScraperHttpError } from "../lib/scraper";
 
 const directory = mkdtempSync(path.join(tmpdir(), "tracking-sync-test-"));
@@ -385,6 +387,51 @@ test("configured minute precision controls scheduling and completed dates remain
   await db.appSettings.update({ where: { id: "default" }, data: { dailySyncTime: "09:00" } });
   currentTime = new Date("2026-11-10T09:00:00+08:00");
   assert.equal((await runDailyTrackingSync({ db, now, wait: noWait })).acquired, false);
+});
+
+test("multiple daily sync times run each slot on the same day and re-query eligible parcels", async () => {
+  await db.appSettings.create({ data: { id: "default", dailySyncTime: "05:00,17:00" } });
+  await db.tracking.create({ data: { id: "parcel", trackingNumber: "parcel" } });
+
+  currentTime = new Date("2026-11-10T05:00:00+08:00");
+  const morning = await runDailyTrackingSync({
+    db, now, wait: noWait,
+    fetchTracking: async () => response("accepted", "2026-11-10T05:00:00+08:00"),
+  });
+  assert.equal(morning.acquired, true);
+  assert.equal(morning.succeeded, 1);
+  assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "parcel" } })).status, "TRANSIT");
+
+  currentTime = new Date("2026-11-10T10:00:00+08:00");
+  assert.equal((await runDailyTrackingSync({ db, now, wait: noWait })).acquired, false);
+
+  currentTime = new Date("2026-11-10T17:00:00+08:00");
+  const evening = await runDailyTrackingSync({
+    db, now, wait: noWait,
+    fetchTracking: async () => response("delivered", "2026-11-10T17:00:00+08:00"),
+  });
+  assert.equal(evening.acquired, true);
+  assert.equal(evening.succeeded, 1);
+  assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "parcel" } })).status, "DELIVERED");
+  assert.equal((await db.syncJob.findUniqueOrThrow({ where: { id: "daily-parcel-sync" } })).lastRunDate, "2026-11-10@17:00");
+});
+
+test("single tracking manual sync updates events, status and status change log", async () => {
+  await db.tracking.create({ data: { id: "single-1", trackingNumber: "1Z999AA10123456784" } });
+  const synced = await syncSingleTracking("single-1", {
+    db, now,
+    fetchTracking: async () => response("in_transit", "2026-11-10T05:00:00+08:00"),
+  });
+  assert.ok(synced);
+  assert.equal(synced.previousStatus, "PENDING");
+  assert.equal(synced.status, "TRANSIT");
+  assert.equal(synced.statusChanged, true);
+  assert.equal(synced.events.length, 1);
+  assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "single-1" } })).status, "TRANSIT");
+  const log = await db.trackingStatusLog.findFirstOrThrow({ where: { trackingId: "single-1" } });
+  assert.equal(log.fromStatus, "PENDING");
+  assert.equal(log.toStatus, "TRANSIT");
+  assert.equal(log.source, "MANUAL_SCRAPE");
 });
 
 test("simultaneous starts from independent database clients create only one active run", async () => {

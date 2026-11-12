@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { normalizeScraperUrl } from "@/lib/scraper-url";
-import { normalizeDailySyncTime } from "@/lib/tracking-schedule";
+import { normalizeDailySyncTime, normalizeDailySyncTimes } from "@/lib/tracking-schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +23,9 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     scraperUrl = normalizeScraperUrl(body?.scraperUrl);
-    if (body?.dailySyncTime !== undefined) {
-      dailySyncTime = normalizeDailySyncTime(body.dailySyncTime);
+    const rawSyncTimes = body?.dailySyncTimes !== undefined ? body.dailySyncTimes : body?.dailySyncTime;
+    if (rawSyncTimes !== undefined) {
+      dailySyncTime = normalizeDailySyncTime(rawSyncTimes);
     }
   } catch (error) {
     return NextResponse.json(
@@ -40,7 +41,12 @@ export async function PUT(request: NextRequest) {
       update: { scraperUrl, ...(dailySyncTime !== undefined && { dailySyncTime }) },
       select: { scraperUrl: true, dailySyncTime: true },
     });
-    return NextResponse.json(settings);
+    const dailySyncTimes = normalizeDailySyncTimes(settings.dailySyncTime);
+    return NextResponse.json({
+      scraperUrl: settings.scraperUrl,
+      dailySyncTime: dailySyncTimes.join(","),
+      dailySyncTimes,
+    });
   } catch (error) {
     console.error("Failed to save scraper settings:", error);
     return NextResponse.json({ message: "保存设置失败" }, { status: 500 });
