@@ -282,6 +282,7 @@ export default function TrackingHistoryButton({
           type="button"
           variant="outline"
           size="icon"
+          className="size-7"
           aria-label={trackingUrl ? `官网查询 ${trackingNumber}，悬浮查看物流轨迹` : `查看 ${trackingNumber} 的物流轨迹`}
           aria-haspopup="dialog"
           aria-expanded={open}
@@ -309,7 +310,7 @@ export default function TrackingHistoryButton({
             }
           }}
         >
-          <ExternalLink className="h-4 w-4" />
+          <ExternalLink className="size-3.5" />
         </Button>
       </PopoverAnchor>
       <PopoverContent

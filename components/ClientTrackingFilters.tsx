@@ -100,8 +100,16 @@ export default function ClientTrackingFilters() {
     applyFilters(undefined, undefined, undefined, newIsUrgent);
   };
   
+  // 检查是否有激活的过滤条件
+  const hasActiveFilters =
+    status !== "all" ||
+    logisticsCompanyId !== "all" ||
+    forwarderId !== "all" ||
+    isUrgentOnly;
+
   // 清除过滤条件
   const clearFilters = () => {
+    if (!hasActiveFilters) return;
     setStatus("all");
     setLogisticsCompanyId("all");
     setForwarderId("all");
@@ -219,7 +227,12 @@ export default function ClientTrackingFilters() {
         <span className="text-sm text-muted-foreground">
           {getFilterStatusText()}
         </span>
-        <Button variant="outline" size="sm" onClick={clearFilters}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clearFilters}
+          disabled={!hasActiveFilters}
+        >
           重置过滤
         </Button>
       </div>

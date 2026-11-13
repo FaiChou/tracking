@@ -631,18 +631,18 @@ export default function TrackingList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[40px]">
+              <TableHead className="h-9 w-[40px]">
                 <Checkbox 
                   checked={selectedTrackings.length === trackings.length && trackings.length > 0}
                   onCheckedChange={toggleSelectAll}
                 />
               </TableHead>
-              <TableHead>运单号</TableHead>
-              <TableHead className="min-w-[200px] max-w-[300px]">备注</TableHead>
-              <TableHead>物流公司</TableHead>
-              <TableHead>货代商</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>
+              <TableHead className="h-9">运单号</TableHead>
+              <TableHead className="h-9 min-w-[200px] max-w-[300px]">备注</TableHead>
+              <TableHead className="h-9">物流公司</TableHead>
+              <TableHead className="h-9">货代商</TableHead>
+              <TableHead className="h-9">状态</TableHead>
+              <TableHead className="h-9">
                 <div
                   className="font-semibold cursor-pointer flex items-center"
                   onClick={() => toggleSort("createdAt")}
@@ -650,20 +650,20 @@ export default function TrackingList({
                   添加日期{getSortIcon("createdAt")}
                 </div>
               </TableHead>
-              <TableHead className="w-[60px]">添加天数</TableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead className="h-9 w-[60px]">添加天数</TableHead>
+              <TableHead className="h-9 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedTrackings.map((tracking) => (
               <TableRow key={tracking.id} className="group">
-                <TableCell>
+                <TableCell className="py-1">
                   <Checkbox 
                     checked={selectedTrackings.includes(tracking.id)}
                     onCheckedChange={() => toggleSelect(tracking.id)}
                   />
                 </TableCell>
-                <TableCell className="font-medium">
+                <TableCell className="py-1 font-medium">
                   <div className="flex items-center space-x-2">
                     <button 
                       onClick={() => copySingleTracking(tracking)} 
@@ -676,20 +676,20 @@ export default function TrackingList({
                       variant="ghost"
                       size="icon"
                       onClick={() => toggleUrgent(tracking.id, tracking.isUrgent)}
-                      className={`h-6 w-6 ${tracking.isUrgent ? 'text-red-500' : 'opacity-0 group-hover:opacity-100'}`}
+                      className={`size-6 ${tracking.isUrgent ? 'text-red-500' : 'opacity-0 group-hover:opacity-100'}`}
                       title={tracking.isUrgent ? "取消加急" : "设为加急"}
                     >
-                      <Flame className="h-4 w-4" />
+                      <Flame className="size-3.5" />
                     </Button>
                   </div>
                 </TableCell>
-                <TableCell className="whitespace-pre-wrap break-words">
+                <TableCell className="py-1 max-w-[300px] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                   {editingNote === tracking.id ? (
                     <div className="flex items-center space-x-2">
                       <Input
                         value={noteValue}
                         onChange={(e) => setNoteValue(e.target.value)}
-                        className="h-8"
+                        className="h-7 text-xs"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -703,17 +703,17 @@ export default function TrackingList({
                         variant="ghost"
                         size="icon"
                         onClick={() => updateNote(tracking.id, noteValue)}
-                        className="h-8 w-8"
+                        className="size-7"
                       >
-                        <Check className="h-4 w-4" />
+                        <Check className="size-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={cancelEditingNote}
-                        className="h-8 w-8"
+                        className="size-7"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="size-3.5" />
                       </Button>
                     </div>
                   ) : (
@@ -723,19 +723,19 @@ export default function TrackingList({
                         variant="ghost"
                         size="icon"
                         onClick={() => startEditingNote(tracking.id, tracking.note)}
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                        className="size-6 opacity-0 group-hover:opacity-100 flex-shrink-0"
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="size-3.5" />
                       </Button>
                     </div>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-1">
                   <Select
                     value={tracking.logisticsCompany?.id || "none"}
                     onValueChange={(value) => updateLogisticsCompany(tracking.id, value)}
                   >
-                    <SelectTrigger className="w-[120px]">
+                    <SelectTrigger className="h-7 w-[110px] px-2 py-0 text-xs gap-1">
                       <SelectValue placeholder="选择物流公司" />
                     </SelectTrigger>
                     <SelectContent>
@@ -744,7 +744,7 @@ export default function TrackingList({
                         <SelectItem key={company.id} value={company.id}>
                           <div className="flex items-center">
                             <div 
-                              className="w-3 h-3 rounded-full mr-2" 
+                              className="w-2.5 h-2.5 rounded-full mr-1.5 shrink-0" 
                               style={{ backgroundColor: company.color }}
                             />
                             {company.name}
@@ -754,12 +754,12 @@ export default function TrackingList({
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-1">
                   <Select
                     value={tracking.forwarder?.id || "none"}
                     onValueChange={(value) => updateForwarder(tracking.id, value)}
                   >
-                    <SelectTrigger className="w-[120px]">
+                    <SelectTrigger className="h-7 w-[110px] px-2 py-0 text-xs gap-1">
                       <SelectValue placeholder="选择货代商" />
                     </SelectTrigger>
                     <SelectContent>
@@ -768,7 +768,7 @@ export default function TrackingList({
                         <SelectItem key={forwarder.id} value={forwarder.id}>
                           <div className="flex items-center">
                             <div 
-                              className="w-3 h-3 rounded-full mr-2" 
+                              className="w-2.5 h-2.5 rounded-full mr-1.5 shrink-0" 
                               style={{ backgroundColor: forwarder.color }}
                             />
                             {forwarder.name}
@@ -778,12 +778,12 @@ export default function TrackingList({
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-1">
                   <Select
                     value={tracking.status}
                     onValueChange={(value) => updateTrackingStatus(tracking.id, value as TrackingStatus)}
                   >
-                    <SelectTrigger className={`w-[100px] ${getStatusColor(tracking.status)}`}>
+                    <SelectTrigger className={`h-7 w-[88px] px-2 py-0 text-xs gap-1 ${getStatusColor(tracking.status)}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -794,7 +794,7 @@ export default function TrackingList({
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-1">
                   <span className="text-xs text-muted-foreground">
                     {new Date(tracking.createdAt).toLocaleDateString('zh-CN', {
                       month: '2-digit',
@@ -804,13 +804,13 @@ export default function TrackingList({
                     })}
                   </span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-1">
                   <span className="text-xs">
                     {Math.floor((new Date().getTime() - new Date(tracking.createdAt).getTime()) / (1000 * 60 * 60 * 24))}天
                   </span>
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end items-center space-x-2">
+                <TableCell className="py-1 text-right">
+                  <div className="flex justify-end items-center space-x-1.5">
                     <TrackingHistoryButton
                       trackingId={tracking.id}
                       trackingNumber={tracking.trackingNumber}
@@ -827,23 +827,24 @@ export default function TrackingList({
                     <Button
                       variant="outline"
                       size="icon"
+                      className="size-7"
                       onClick={() => archiveTracking(tracking.id)}
                       title="归档"
                     >
-                      <Archive className="h-4 w-4" />
+                      <Archive className="size-3.5" />
                     </Button>
                     
                     <Button
                       variant="outline"
                       size="icon"
-                      className="text-destructive"
+                      className="size-7 text-destructive"
                       onClick={() => {
                         setTrackingToDelete(tracking.id);
                         setDeleteDialogOpen(true);
                       }}
                       title="删除"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="size-3.5" />
                     </Button>
                   </div>
                 </TableCell>

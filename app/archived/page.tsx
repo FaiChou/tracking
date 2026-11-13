@@ -182,10 +182,10 @@ export default function ArchivedPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>运单号</TableHead>
-              <TableHead>物流公司</TableHead>
-              <TableHead>货代商</TableHead>
-              <TableHead>
+              <TableHead className="h-9">运单号</TableHead>
+              <TableHead className="h-9">物流公司</TableHead>
+              <TableHead className="h-9">货代商</TableHead>
+              <TableHead className="h-9">
                 <div
                   className="font-semibold cursor-pointer flex items-center"
                   onClick={() => toggleSort("status")}
@@ -193,8 +193,8 @@ export default function ArchivedPage() {
                   状态{getSortIcon("status")}
                 </div>
               </TableHead>
-              <TableHead className="w-[250px]">备注</TableHead>
-              <TableHead>
+              <TableHead className="h-9 w-[240px] max-w-[240px]">备注</TableHead>
+              <TableHead className="h-9">
                 <div
                   className="font-semibold cursor-pointer flex items-center"
                   onClick={() => toggleSort("createdAt")}
@@ -202,7 +202,7 @@ export default function ArchivedPage() {
                   添加日期{getSortIcon("createdAt")}
                 </div>
               </TableHead>
-              <TableHead>
+              <TableHead className="h-9">
                 <div
                   className="font-semibold cursor-pointer flex items-center"
                   onClick={() => toggleSort("updatedAt")}
@@ -210,18 +210,18 @@ export default function ArchivedPage() {
                   更新日期{getSortIcon("updatedAt")}
                 </div>
               </TableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead className="h-9 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedTrackings.map((tracking) => (
               <TableRow key={tracking.id}>
-                <TableCell className="font-medium">{tracking.trackingNumber}</TableCell>
-                <TableCell>
+                <TableCell className="py-1 font-medium">{tracking.trackingNumber}</TableCell>
+                <TableCell className="py-1">
                   {tracking.logisticsCompany ? (
                     <div className="flex items-center">
                       <div 
-                        className="w-3 h-3 rounded-full mr-2" 
+                        className="w-2.5 h-2.5 rounded-full mr-1.5 shrink-0" 
                         style={{ backgroundColor: tracking.logisticsCompany.color }}
                       />
                       {tracking.logisticsCompany.name}
@@ -230,11 +230,11 @@ export default function ArchivedPage() {
                     "-"
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-1">
                   {tracking.forwarder ? (
                     <div className="flex items-center">
                       <div 
-                        className="w-3 h-3 rounded-full mr-2" 
+                        className="w-2.5 h-2.5 rounded-full mr-1.5 shrink-0" 
                         style={{ backgroundColor: tracking.forwarder.color }}
                       />
                       {tracking.forwarder.name}
@@ -243,11 +243,13 @@ export default function ArchivedPage() {
                     "-"
                   )}
                 </TableCell>
-                <TableCell className={getStatusColor(tracking.status)}>
+                <TableCell className={`py-1 ${getStatusColor(tracking.status)}`}>
                   {getStatusText(tracking.status)}
                 </TableCell>
-                <TableCell>{tracking.note || "-"}</TableCell>
-                <TableCell>
+                <TableCell className="py-1 w-[240px] max-w-[240px] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                  {tracking.note || "-"}
+                </TableCell>
+                <TableCell className="py-1 text-xs text-muted-foreground">
                   {new Date(tracking.createdAt).toLocaleDateString('zh-CN', {
                     year: 'numeric',
                     month: '2-digit',
@@ -256,7 +258,7 @@ export default function ArchivedPage() {
                     minute: '2-digit'
                   })}
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-1 text-xs text-muted-foreground">
                   {new Date(tracking.updatedAt).toLocaleDateString('zh-CN', {
                     year: 'numeric',
                     month: '2-digit',
@@ -265,8 +267,8 @@ export default function ArchivedPage() {
                     minute: '2-digit'
                   })}
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end items-center space-x-2">
+                <TableCell className="py-1 text-right">
+                  <div className="flex justify-end items-center space-x-1.5">
                     <TrackingHistoryButton
                       trackingId={tracking.id}
                       trackingNumber={tracking.trackingNumber}
@@ -284,6 +286,7 @@ export default function ArchivedPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-7 px-2.5 text-xs"
                       onClick={() => unarchiveTracking(tracking.id)}
                     >
                       取消归档

@@ -46,7 +46,13 @@ export default function TrackingFilters() {
     router.push(`/?${params.toString()}`);
   };
   
+  const hasActiveFilters =
+    status !== "all" ||
+    logisticsCompanyId !== "all" ||
+    forwarderId !== "all";
+
   const clearFilters = () => {
+    if (!hasActiveFilters) return;
     setStatus("all");
     setLogisticsCompanyId("all");
     setForwarderId("all");
@@ -140,7 +146,12 @@ export default function TrackingFilters() {
       </div>
       
       <div className="flex items-center gap-2 ml-auto">
-        <Button variant="outline" size="sm" onClick={clearFilters}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clearFilters}
+          disabled={!hasActiveFilters}
+        >
           清除
         </Button>
         <Button size="sm" onClick={applyFilters}>
