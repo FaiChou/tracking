@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
+import { parseTrackingInput } from "@/lib/tracking-number";
 
 type AddTrackingDialogProps = {
   onSuccess?: () => void;
@@ -32,6 +33,7 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
   const [forwarders, setForwarders] = useState<{ id: string; name: string; color: string }[]>([]);
   const [logisticsCompanies, setLogisticsCompanies] = useState<{ id: string; name: string; color: string; trackingUrl: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const trackingsWithNotes = parseTrackingInput(trackingNumbers);
   
   // 添加快捷键支持
   useEffect(() => {
@@ -67,34 +69,6 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!trackingNumbers.trim()) {
-      toast.error("请输入至少一个运单号");
-      return;
-    }
-    
-    // 分割运单号，每行一个，并解析备注
-    const trackingsWithNotes = trackingNumbers
-      .split("\n")
-      .map(line => {
-        const trimmedLine = line.trim();
-        if (!trimmedLine) return null;
-        
-        // 查找第一个空格的位置
-        const firstSpaceIndex = trimmedLine.indexOf(' ');
-        
-        // 如果没有空格，则整行都是运单号
-        if (firstSpaceIndex === -1) {
-          return { trackingNumber: trimmedLine, note: null };
-        }
-        
-        // 分割运单号和备注
-        const trackingNumber = trimmedLine.substring(0, firstSpaceIndex).trim();
-        const note = trimmedLine.substring(firstSpaceIndex + 1).trim() || null;
-        
-        return { trackingNumber, note };
-      })
-      .filter(Boolean);
-    
     if (trackingsWithNotes.length === 0) {
       toast.error("请输入至少一个有效的运单号");
       return;
@@ -116,7 +90,8 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
       });
       
       if (res.ok) {
-        toast.success(`成功添加 ${trackingsWithNotes.length} 个运单号`);
+        const result = await res.json();
+        toast.success(`成功添加 ${result.created} 个运单号${result.skipped ? `，跳过 ${result.skipped} 个重复单号` : ""}`);
         setTrackingNumbers("");
         setForwarderId("none");
         setLogisticsCompanyId("none");
@@ -162,7 +137,7 @@ export default function AddTrackingDialog({ onSuccess }: AddTrackingDialogProps)
                 autoFocus
               />
               <p className="text-sm text-muted-foreground">
-                已输入 {trackingNumbers.split("\n").filter(n => n.trim()).length} 个运单号
+                已输入 {trackingsWithNotes.length} 个运单号
               </p>
               <p className="text-sm text-muted-foreground">
                 提示：每行一个运单，如需添加备注，请在运单号后加空格，然后输入备注

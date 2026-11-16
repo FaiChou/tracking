@@ -6,6 +6,7 @@ import type { TrackingStatus } from "@prisma/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { buildTrackingUrl } from "@/lib/tracking-number";
 
 type TrackingEvent = {
   id: string;
@@ -304,7 +305,12 @@ export default function TrackingHistoryButton({
           }}
           onClick={() => {
             if (trackingUrl) {
-              window.open(`${trackingUrl}${trackingNumber}`, "_blank", "noopener,noreferrer");
+              const url = buildTrackingUrl(trackingUrl, trackingNumber);
+              if (!url) {
+                toast.error("运单号清理后为空，无法查询");
+                return;
+              }
+              window.open(url, "_blank", "noopener,noreferrer");
             } else {
               showHistory();
             }

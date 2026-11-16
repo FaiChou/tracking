@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { TrackingStatus } from "@prisma/client";
 import { guessLogisticsCompanyId } from "@/lib/guess-logistics-company";
+import { normalizeTrackingNumber } from "@/lib/tracking-number";
 
 // 获取运单列表
 export async function GET(request: NextRequest) {
@@ -58,7 +59,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { trackingNumber, logisticsCompanyId, forwarderId, status, note } = body;
+    const { trackingNumber: inputNumber, logisticsCompanyId, forwarderId, status, note } = body ?? {};
+    if (typeof inputNumber !== "string") {
+      return NextResponse.json(
+        { message: "运单号必须是字符串" },
+        { status: 400 }
+      );
+    }
+    const trackingNumber = normalizeTrackingNumber(inputNumber);
     
     if (!trackingNumber) {
       return NextResponse.json(

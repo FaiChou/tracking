@@ -99,6 +99,33 @@ test("daily scheduling follows Shanghai 05:00 across UTC dates and excludes buil
   assert.equal(schedulerEnabled({ NEXT_RUNTIME: "nodejs", NODE_ENV: "development", TRACKING_SYNC_ENABLED: "true" }), true);
 });
 
+test("scraper cleans legacy tracking numbers at the HTTP boundary without mutating the record", async () => {
+  const tracking = Object.freeze({
+    trackingNumber: "\ufeff921449\u200b041642\u00a01811474208\u2060",
+    logisticsCompany: { name: "USPS" },
+  });
+  let number: string | undefined;
+  await fetchParcel("http://scraper.test", tracking, {
+    fetch: (async (_url, init) => {
+      number = JSON.parse(String(init?.body)).number;
+      return Response.json({ result: { current_stage: "in_transit", events: [] } });
+    }) as typeof fetch,
+  });
+  assert.equal(number, "9214490416421811474208");
+  assert.equal(tracking.trackingNumber, "\ufeff921449\u200b041642\u00a01811474208\u2060");
+});
+
+test("scraper rejects an invisible-only number before sending a request", async () => {
+  let requested = false;
+  await assert.rejects(fetchParcel("http://scraper.test", {
+    trackingNumber: "\u200b\ufeff \t", logisticsCompany: null,
+  }, { fetch: (async () => {
+    requested = true;
+    return Response.json({});
+  }) as typeof fetch }), /运单号清理后为空/);
+  assert.equal(requested, false);
+});
+
 test("configurable daily times validate HH:mm and report the next Shanghai occurrence", () => {
   assert.equal(normalizeDailySyncTime(" 08:37 "), "08:37");
   assert.deepEqual(normalizeDailySyncTimes([" 17:00 ", "05:00", "17:00"]), ["05:00", "17:00"]);

@@ -34,6 +34,7 @@ import { TrackingStatus } from "@prisma/client";
 import { Archive, Trash2, Search, Pencil, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Copy, Flame } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils";
 import TrackingHistoryButton from "@/components/TrackingHistoryButton";
+import { build17TrackUrl } from "@/lib/tracking-number";
 
 // 定义运单类型
 type Tracking = {
@@ -533,16 +534,15 @@ export default function TrackingList({
     }
     
     // 按照界面显示顺序获取运单号
-    const orderedTrackingIds = sortedTrackings
+    const trackingNumbers = sortedTrackings
       .filter(tracking => selectedTrackings.includes(tracking.id))
-      .map(tracking => tracking.id);
-    
-    const trackingNumbers = orderedTrackingIds
-      .map(id => trackings.find(t => t.id === id)?.trackingNumber)
-      .filter(Boolean)
-      .join(",");
-    
-    window.open(`https://t.17track.net/zh-cn#nums=${trackingNumbers}`, "_blank");
+      .map(tracking => tracking.trackingNumber);
+    const url = build17TrackUrl(trackingNumbers);
+    if (!url) {
+      toast.error("所选运单号清理后为空，无法查询");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
   };
   
   // 获取状态颜色

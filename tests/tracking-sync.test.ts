@@ -8,7 +8,7 @@ import { PrismaClient, TrackingStatus } from "@prisma/client";
 import {
   getTrackingSyncStatus, requestTrackingSyncStop, runDailyTrackingSync, startManualTrackingSync, syncSingleTracking,
 } from "../lib/tracking-sync";
-import { parseScraperResponse, ScraperHttpError } from "../lib/scraper";
+import { fetchParcel, parseScraperResponse, ScraperHttpError } from "../lib/scraper";
 
 const directory = mkdtempSync(path.join(tmpdir(), "tracking-sync-test-"));
 const databaseUrl = `file:${path.join(directory, "test.db")}`;
@@ -432,6 +432,26 @@ test("single tracking manual sync updates events, status and status change log",
   assert.equal(log.fromStatus, "PENDING");
   assert.equal(log.toStatus, "TRANSIT");
   assert.equal(log.source, "MANUAL_SCRAPE");
+});
+
+test("scheduled and single sync query clean numbers while preserving stored legacy numbers", async () => {
+  const original = "\ufeff1Z999\u200bAA10123456784\u2060";
+  await db.tracking.create({ data: { id: "legacy", trackingNumber: original } });
+  const requested: string[] = [];
+  const fetchTracking: typeof fetchParcel = (baseUrl, tracking, options) => fetchParcel(baseUrl, tracking, {
+    ...options,
+    fetch: (async (_url, init) => {
+      requested.push(JSON.parse(String(init?.body)).number);
+      return Response.json({ result: { current_stage: "in_transit", events: [] } });
+    }) as typeof fetch,
+  });
+  const summary = await runDailyTrackingSync({ db, now, wait: noWait, fetchTracking });
+  assert.equal(summary.succeeded, 1);
+  assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "legacy" } })).trackingNumber, original);
+  const single = await syncSingleTracking("legacy", { db, now, fetchTracking });
+  assert.equal(single?.trackingNumber, original);
+  assert.equal((await db.tracking.findUniqueOrThrow({ where: { id: "legacy" } })).trackingNumber, original);
+  assert.deepEqual(requested, ["1Z999AA10123456784", "1Z999AA10123456784"]);
 });
 
 test("simultaneous starts from independent database clients create only one active run", async () => {

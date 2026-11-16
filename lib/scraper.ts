@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { TrackingStatus } from "@prisma/client";
 import { newestEventsFirst } from "@/lib/tracking-history";
+import { normalizeTrackingNumber } from "@/lib/tracking-number";
 
 export const SCRAPER_TIMEOUT_MS = 180_000;
 export const SCRAPER_BUDGET_MS = 120_000;
@@ -126,12 +127,14 @@ export async function fetchParcel(
   tracking: { trackingNumber: string; logisticsCompany: { name: string } | null },
   options: { signal?: AbortSignal; fetch?: typeof fetch } = {},
 ): Promise<ScraperResult> {
+  const number = normalizeTrackingNumber(tracking.trackingNumber);
+  if (!number) throw new Error("运单号清理后为空，无法查询");
   const timeout = AbortSignal.timeout(SCRAPER_TIMEOUT_MS);
   const response = await (options.fetch ?? fetch)(`${baseUrl.replace(/\/+$/, "")}/v1/track`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({
-      number: tracking.trackingNumber,
+      number,
       carrier: scraperCarrier(tracking.logisticsCompany?.name),
       budgetMs: SCRAPER_BUDGET_MS,
     }),
