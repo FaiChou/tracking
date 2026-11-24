@@ -1,17 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { STATUS_CHANGE_LOG_LIMIT } from "@/lib/tracking-status-log";
+import { listTrackingStatusChanges, parseStatusChangeLimit } from "@/lib/tracking-status-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const limit = parseStatusChangeLimit(request.nextUrl.searchParams.get("limit"));
+  if (limit === null) {
+    return NextResponse.json({ message: "limit 参数必须是正整数" }, { status: 400 });
+  }
+
   try {
-    const logs = await prisma.trackingStatusLog.findMany({
-      orderBy: { id: "desc" },
-      take: STATUS_CHANGE_LOG_LIMIT,
-    });
-    return NextResponse.json({ logs, limit: STATUS_CHANGE_LOG_LIMIT }, {
+    const result = await listTrackingStatusChanges(prisma, limit);
+    return NextResponse.json(result, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

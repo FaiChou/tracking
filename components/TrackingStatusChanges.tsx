@@ -5,51 +5,16 @@ import { ArrowRight, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-type TrackingStatus = "PENDING" | "TRANSIT" | "DELIVERED" | "EXCEPTION";
-type ChangeSource = "SCHEDULED_SCRAPE" | "MANUAL_SCRAPE" | "MANUAL_EDIT";
-type StatusChange = {
-  id: number;
-  trackingId: string;
-  trackingNumber: string;
-  fromStatus: TrackingStatus;
-  toStatus: TrackingStatus;
-  source: ChangeSource;
-  syncRunId: string | null;
-  createdAt: string;
-};
+import {
+  formatStatusChangeTimestamp,
+  isStatusChange,
+  SOURCE_LABELS,
+  STATUS_COLORS,
+  STATUS_LABELS,
+  type StatusChange,
+} from "@/lib/tracking-status-changes-ui";
 
-const STATUS_LABELS: Record<TrackingStatus, string> = {
-  PENDING: "待处理", TRANSIT: "运输中", DELIVERED: "已签收", EXCEPTION: "异常",
-};
-const STATUS_COLORS: Record<TrackingStatus, string> = {
-  PENDING: "text-muted-foreground", TRANSIT: "text-blue-600 dark:text-blue-400",
-  DELIVERED: "text-green-600 dark:text-green-400", EXCEPTION: "text-red-600 dark:text-red-400",
-};
-const SOURCE_LABELS: Record<ChangeSource, string> = {
-  SCHEDULED_SCRAPE: "scraper", MANUAL_SCRAPE: "scraper", MANUAL_EDIT: "手动修改",
-};
 const LOG_LIMIT = 500;
-
-function isStatusChange(value: unknown): value is StatusChange {
-  if (value === null || typeof value !== "object") return false;
-  const log = value as Record<string, unknown>;
-  return typeof log.id === "number" && Number.isInteger(log.id)
-    && typeof log.trackingId === "string" && typeof log.trackingNumber === "string"
-    && typeof log.fromStatus === "string" && Object.hasOwn(STATUS_LABELS, log.fromStatus)
-    && typeof log.toStatus === "string" && Object.hasOwn(STATUS_LABELS, log.toStatus)
-    && typeof log.source === "string" && Object.hasOwn(SOURCE_LABELS, log.source)
-    && (log.syncRunId === null || typeof log.syncRunId === "string")
-    && typeof log.createdAt === "string";
-}
-
-function formatTimestamp(value: string) {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "时间未知";
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
-  }).format(date);
-}
 
 export default function TrackingStatusChanges({ refreshKey }: { refreshKey?: string }) {
   const [logs, setLogs] = useState<StatusChange[] | null>(null);
@@ -121,7 +86,7 @@ export default function TrackingStatusChanges({ refreshKey }: { refreshKey?: str
   }, [refreshKey, refreshCount]);
 
   return (
-    <section aria-labelledby="tracking-status-changes-title" className="rounded-lg border bg-card p-5 sm:p-6">
+    <section id="tracking-status-changes" aria-labelledby="tracking-status-changes-title" className="rounded-lg border bg-card p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <h2 id="tracking-status-changes-title" className="text-lg font-semibold">最近状态变更</h2>
@@ -160,7 +125,7 @@ export default function TrackingStatusChanges({ refreshKey }: { refreshKey?: str
                 {logs.map(log => (
                   <TableRow key={log.id}>
                     <TableCell className="tabular-nums text-muted-foreground">
-                      <time dateTime={log.createdAt}>{formatTimestamp(log.createdAt)}</time>
+                      <time dateTime={log.createdAt}>{formatStatusChangeTimestamp(log.createdAt)}</time>
                     </TableCell>
                     <TableCell className="font-medium">{log.trackingNumber}</TableCell>
                     <TableCell>

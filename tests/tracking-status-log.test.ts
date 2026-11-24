@@ -7,7 +7,14 @@ import { before, after, beforeEach, test } from "node:test";
 import { PrismaClient, TrackingStatusChangeSource } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { PATCH } from "../app/api/trackings/[id]/route";
-import { recordTrackingStatusChange, STATUS_CHANGE_LOG_LIMIT } from "../lib/tracking-status-log";
+import { GET } from "../app/api/trackings/status-changes/route";
+import {
+  listTrackingStatusChanges,
+  parseStatusChangeLimit,
+  RECENT_STATUS_CHANGE_POPOVER_LIMIT,
+  recordTrackingStatusChange,
+  STATUS_CHANGE_LOG_LIMIT,
+} from "../lib/tracking-status-log";
 import { InvalidTrackingPatchError, updateTracking } from "../lib/update-tracking";
 
 const directory = mkdtempSync(path.join(tmpdir(), "tracking-log-test-"));
@@ -124,5 +131,61 @@ test("manual edit rolls back the parcel when writing its status log fails", asyn
     assert.equal(await db.trackingStatusLog.count(), 0);
   } finally {
     await db.$executeRawUnsafe("DROP TRIGGER reject_status_log");
+  }
+});
+
+test("parseStatusChangeLimit accepts positive integers up to 500 and rejects invalid inputs", () => {
+  assert.equal(parseStatusChangeLimit(null), STATUS_CHANGE_LOG_LIMIT);
+  assert.equal(parseStatusChangeLimit(""), STATUS_CHANGE_LOG_LIMIT);
+  assert.equal(parseStatusChangeLimit("   "), STATUS_CHANGE_LOG_LIMIT);
+  assert.equal(parseStatusChangeLimit("200"), RECENT_STATUS_CHANGE_POPOVER_LIMIT);
+  assert.equal(parseStatusChangeLimit(" 200 "), RECENT_STATUS_CHANGE_POPOVER_LIMIT);
+  assert.equal(parseStatusChangeLimit("999"), STATUS_CHANGE_LOG_LIMIT);
+  for (const invalid of ["0", "-1", "abc", "1.5", "200px"]) {
+    assert.equal(parseStatusChangeLimit(invalid), null);
+  }
+});
+
+test("listTrackingStatusChanges caps results at the requested limit and reports hasMore accurately", async () => {
+  await db.trackingStatusLog.createMany({
+    data: Array.from({ length: RECENT_STATUS_CHANGE_POPOVER_LIMIT }, (_, index) => ({
+      trackingId: `t-${index}`,
+      trackingNumber: `parcel-${index}`,
+      fromStatus: "PENDING",
+      toStatus: "TRANSIT",
+      source: "MANUAL_EDIT",
+      createdAt: timestamp,
+    })),
+  });
+
+  const exact = await listTrackingStatusChanges(db, RECENT_STATUS_CHANGE_POPOVER_LIMIT);
+  assert.equal(exact.limit, RECENT_STATUS_CHANGE_POPOVER_LIMIT);
+  assert.equal(exact.logs.length, RECENT_STATUS_CHANGE_POPOVER_LIMIT);
+  assert.equal(exact.hasMore, false);
+  assert.equal(exact.logs[0].trackingNumber, `parcel-${RECENT_STATUS_CHANGE_POPOVER_LIMIT - 1}`);
+
+  await db.trackingStatusLog.create({
+    data: {
+      trackingId: "t-extra",
+      trackingNumber: "parcel-extra",
+      fromStatus: "PENDING",
+      toStatus: "DELIVERED",
+      source: "SCHEDULED_SCRAPE",
+      createdAt: timestamp,
+    },
+  });
+
+  const truncated = await listTrackingStatusChanges(db, RECENT_STATUS_CHANGE_POPOVER_LIMIT);
+  assert.equal(truncated.limit, RECENT_STATUS_CHANGE_POPOVER_LIMIT);
+  assert.equal(truncated.logs.length, RECENT_STATUS_CHANGE_POPOVER_LIMIT);
+  assert.equal(truncated.hasMore, true);
+  assert.equal(truncated.logs[0].trackingNumber, "parcel-extra");
+  assert.equal(truncated.logs[RECENT_STATUS_CHANGE_POPOVER_LIMIT - 1].trackingNumber, "parcel-1");
+});
+
+test("status-changes GET returns HTTP 400 for invalid limit query values", async () => {
+  for (const invalid of ["0", "-1", "abc", "1.5"]) {
+    const reply = await GET(new NextRequest(`http://localhost/api/trackings/status-changes?limit=${encodeURIComponent(invalid)}`));
+    assert.equal(reply.status, 400);
   }
 });

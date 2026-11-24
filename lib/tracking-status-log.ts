@@ -1,6 +1,31 @@
-import type { Prisma, TrackingStatus, TrackingStatusChangeSource } from "@prisma/client";
+import type { Prisma, PrismaClient, TrackingStatus, TrackingStatusChangeSource } from "@prisma/client";
 
 export const STATUS_CHANGE_LOG_LIMIT = 500;
+export const RECENT_STATUS_CHANGE_POPOVER_LIMIT = 200;
+
+export function parseStatusChangeLimit(raw: string | null): number | null {
+  if (raw === null || raw.trim() === "") return STATUS_CHANGE_LOG_LIMIT;
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) return null;
+  return Math.min(parsed, STATUS_CHANGE_LOG_LIMIT);
+}
+
+export async function listTrackingStatusChanges(
+  db: Pick<PrismaClient, "trackingStatusLog">,
+  limit = STATUS_CHANGE_LOG_LIMIT,
+) {
+  const rows = await db.trackingStatusLog.findMany({
+    orderBy: { id: "desc" },
+    take: limit + 1,
+  });
+  return {
+    logs: rows.slice(0, limit),
+    limit,
+    hasMore: rows.length > limit,
+  };
+}
 
 type StatusChange = {
   trackingId: string;

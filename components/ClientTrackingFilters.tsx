@@ -141,75 +141,66 @@ export default function ClientTrackingFilters() {
   
   return (
     <div className="bg-card p-3 rounded-lg border flex flex-wrap items-center gap-3">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium whitespace-nowrap">状态:</span>
-        <Select value={status} onValueChange={handleStatusChange}>
-          <SelectTrigger className="w-[120px] h-9">
-            <SelectValue placeholder="选择状态" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            <SelectItem value={TrackingStatus.PENDING} className="">
-              待处理
-            </SelectItem>
-            <SelectItem value={TrackingStatus.TRANSIT} className={getStatusColor(TrackingStatus.TRANSIT)}>
-              运输中
-            </SelectItem>
-            <SelectItem value={TrackingStatus.DELIVERED} className={getStatusColor(TrackingStatus.DELIVERED)}>
-              已签收
-            </SelectItem>
-            <SelectItem value={TrackingStatus.EXCEPTION} className={getStatusColor(TrackingStatus.EXCEPTION)}>
-              异常
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Select value={status} onValueChange={handleStatusChange}>
+        <SelectTrigger aria-label="状态" className="w-[120px] h-9">
+          <SelectValue placeholder="选择状态" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">全部状态</SelectItem>
+          <SelectItem value={TrackingStatus.PENDING} className="">
+            待处理
+          </SelectItem>
+          <SelectItem value={TrackingStatus.TRANSIT} className={getStatusColor(TrackingStatus.TRANSIT)}>
+            运输中
+          </SelectItem>
+          <SelectItem value={TrackingStatus.DELIVERED} className={getStatusColor(TrackingStatus.DELIVERED)}>
+            已签收
+          </SelectItem>
+          <SelectItem value={TrackingStatus.EXCEPTION} className={getStatusColor(TrackingStatus.EXCEPTION)}>
+            异常
+          </SelectItem>
+        </SelectContent>
+      </Select>
       
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium whitespace-nowrap">物流公司:</span>
-        <Select value={logisticsCompanyId} onValueChange={handleLogisticsCompanyChange}>
-          <SelectTrigger className="w-[150px] h-9">
-            <SelectValue placeholder="选择物流公司" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部物流公司</SelectItem>
-            {logisticsCompanies.map(company => (
-              <SelectItem key={company.id} value={company.id}>
-                <div className="flex items-center">
-                  <div 
-                    className="w-3 h-3 rounded-full mr-2" 
-                    style={{ backgroundColor: company.color }}
-                  />
-                  {company.name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select value={logisticsCompanyId} onValueChange={handleLogisticsCompanyChange}>
+        <SelectTrigger aria-label="物流公司" className="w-[150px] h-9">
+          <SelectValue placeholder="选择物流公司" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">全部物流公司</SelectItem>
+          {logisticsCompanies.map(company => (
+            <SelectItem key={company.id} value={company.id}>
+              <div className="flex items-center">
+                <div 
+                  className="w-3 h-3 rounded-full mr-2" 
+                  style={{ backgroundColor: company.color }}
+                />
+                {company.name}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium whitespace-nowrap">货代商:</span>
-        <Select value={forwarderId} onValueChange={handleForwarderChange}>
-          <SelectTrigger className="w-[150px] h-9">
-            <SelectValue placeholder="选择货代商" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部货代商</SelectItem>
-            {forwarders.map(forwarder => (
-              <SelectItem key={forwarder.id} value={forwarder.id}>
-                <div className="flex items-center">
-                  <div 
-                    className="w-3 h-3 rounded-full mr-2" 
-                    style={{ backgroundColor: forwarder.color }}
-                  />
-                  {forwarder.name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select value={forwarderId} onValueChange={handleForwarderChange}>
+        <SelectTrigger aria-label="货代商" className="w-[150px] h-9">
+          <SelectValue placeholder="选择货代商" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">全部货代商</SelectItem>
+          {forwarders.map(forwarder => (
+            <SelectItem key={forwarder.id} value={forwarder.id}>
+              <div className="flex items-center">
+                <div 
+                  className="w-3 h-3 rounded-full mr-2" 
+                  style={{ backgroundColor: forwarder.color }}
+                />
+                {forwarder.name}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       <div className="flex items-center gap-2">
         <Button

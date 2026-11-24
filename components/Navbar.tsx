@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AddTrackingDialog from "@/components/AddTrackingDialog";
+import TrackingStatusChangesPopover from "@/components/TrackingStatusChangesPopover";
 import { useNavbarActions } from "@/components/NavbarActions";
 
 const Navbar = () => {
@@ -59,6 +60,7 @@ const Navbar = () => {
               <Plus className="h-4 w-4" />
             </Button>
           ) : null}
+          {pathname === "/" && <TrackingStatusChangesPopover />}
           <ThemeToggle />
         </div>
       </div>
