@@ -225,7 +225,7 @@ export default function TrackingStatusChangesPopover() {
           <h2 id={titleId} className="font-semibold">最近状态变更</h2>
         </div>
 
-        <div className="min-h-0 max-h-[min(26rem,60vh)] overflow-y-auto overscroll-contain p-4" tabIndex={0} aria-label="最近状态变更列表">
+        <div className="min-h-0 max-h-[min(38rem,75vh)] overflow-y-auto overscroll-contain p-4" tabIndex={0} aria-label="最近状态变更列表">
           {error && (
             <div role="alert" className={`${logs !== null ? "mb-4 " : ""}space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3`}>
               <p className="text-sm text-destructive">
