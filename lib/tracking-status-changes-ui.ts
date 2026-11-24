@@ -32,6 +32,12 @@ export const SOURCE_LABELS: Record<ChangeSource, string> = {
   MANUAL_EDIT: "手动修改",
 };
 
+export const SOURCE_BADGE_STYLES: Record<ChangeSource, string> = {
+  SCHEDULED_SCRAPE: "bg-violet-50 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300",
+  MANUAL_SCRAPE: "bg-violet-50 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300",
+  MANUAL_EDIT: "bg-amber-50 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300",
+};
+
 export const STATUS_BADGE_STYLES: Record<TrackingStatus, string> = {
   PENDING: "bg-slate-100 text-slate-700 ring-slate-500/20 dark:bg-slate-400/10 dark:text-slate-300 dark:ring-slate-400/30",
   TRANSIT: "bg-blue-50 text-blue-700 ring-blue-500/20 dark:bg-blue-400/10 dark:text-blue-300 dark:ring-blue-400/30",

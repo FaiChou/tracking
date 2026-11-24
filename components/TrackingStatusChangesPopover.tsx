@@ -8,6 +8,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import {
   formatStatusChangeTimestamp,
   isStatusChange,
+  SOURCE_BADGE_STYLES,
   SOURCE_LABELS,
   STATUS_BADGE_STYLES,
   STATUS_DOT_COLORS,
@@ -262,7 +263,7 @@ export default function TrackingStatusChangesPopover() {
                     <time dateTime={log.createdAt} className="text-xs tabular-nums text-muted-foreground">
                       {formatStatusChangeTimestamp(log.createdAt)}
                     </time>
-                    <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${SOURCE_BADGE_STYLES[log.source]}`}>
                       {SOURCE_LABELS[log.source]}
                     </span>
                   </div>

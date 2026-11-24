@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   formatStatusChangeTimestamp,
   isStatusChange,
+  SOURCE_BADGE_STYLES,
   SOURCE_LABELS,
   STATUS_COLORS,
   STATUS_LABELS,
@@ -136,7 +137,11 @@ export default function TrackingStatusChanges({ refreshKey }: { refreshKey?: str
                         <span className={STATUS_COLORS[log.toStatus]}>{STATUS_LABELS[log.toStatus]}</span>
                       </span>
                     </TableCell>
-                    <TableCell>{SOURCE_LABELS[log.source]}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${SOURCE_BADGE_STYLES[log.source]}`}>
+                        {SOURCE_LABELS[log.source]}
+                      </span>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
