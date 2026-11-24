@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, History, Loader2 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, History, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import {
@@ -221,8 +221,24 @@ export default function TrackingStatusChangesPopover() {
         onFocusCapture={cancelClose}
         onBlurCapture={scheduleClose}
       >
-        <div className="shrink-0 border-b px-4 py-2.5">
+        <div className="shrink-0 flex items-center justify-between gap-2 border-b px-4 py-2.5">
           <h2 id={titleId} className="font-semibold">最近状态变更</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 shrink-0 px-2.5 text-xs"
+            disabled={isLoading}
+            onClick={() => setRefreshCount(value => value + 1)}
+            aria-label="刷新最近状态变更"
+          >
+            {isLoading ? (
+              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+            )}
+            {isLoading ? "读取中…" : error ? "重试" : "刷新"}
+          </Button>
         </div>
 
         <div className="min-h-0 max-h-[min(38rem,75vh)] overflow-y-auto overscroll-contain p-4" tabIndex={0} aria-label="最近状态变更列表">
